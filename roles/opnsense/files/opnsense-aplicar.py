@@ -10,11 +10,14 @@ OPNsense guarda toda su configuración en un único config.xml. Este script:
   4. Si el resultado es distinto, lo sube con "Restaurar". Después hay que reiniciar OPNsense\n     (lo hace Ansible con qm reboot): la restauración sola no activa las VLANs nuevas.
 
 Uso:  opnsense-aplicar.py URL ESPEC.json [--simular]
-Variables: OPN_CLAVE (para entrar ahora) y OPN_CLAVE_ROOT (la que debe tener root). Imprime CAMBIADO o SIN CAMBIOS en la última línea.
+Variables: OPN_CLAVE (para entrar ahora), OPN_CLAVE_ROOT (la que debe tener root) y
+OPN_WG_PRIVADAS (JSON con las claves privadas de WireGuard: servidor y cada usuario). Imprime CAMBIADO o SIN CAMBIOS en la última línea.
 """
-import json, os, re, sys, time, uuid
+import base64, json, os, re, sys, time, uuid
 import xml.etree.ElementTree as ET
 import bcrypt, requests, urllib3
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
 urllib3.disable_warnings()
 NS = uuid.UUID("6b7f3c9e-2d4a-4f61-9a0e-6f1c2b3d4e5f")
@@ -196,11 +199,50 @@ def aplicar(raiz, esp):
         campos["description"] = "[nosub] " + r["descripcion"]
         rellenar(e, campos)
 
+    if esp.get("wireguard"):
+        aplicar_wireguard(raiz, esp["wireguard"])
+
     # DHCP/DNS de fábrica (dnsmasq): fuera; el DHCP será Kea con relay y el DNS Unbound/Bind9
     dm = raiz.find("dnsmasq")
     if dm is not None:
         hijo(dm, "enable", "0")
         quitar(dm, "dhcp_ranges")
+
+
+def clave_publica(privada):
+    k = X25519PrivateKey.from_private_bytes(base64.b64decode(privada))
+    return base64.b64encode(k.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)).decode()
+
+
+def aplicar_wireguard(raiz, wg):
+    """Servidor WireGuard (instancia wg0), sus usuarios y la interfaz VPN para poder poner reglas."""
+    privadas = json.loads(os.environ["OPN_WG_PRIVADAS"])
+    base = raiz.find("OPNsense/wireguard")
+    hijo(base.find("general"), "enabled", "1")
+    clientes = base.find("client/clients")
+    nombres = {p["nombre"] for p in wg["usuarios"]}
+    for c in list(clientes):
+        if c.findtext("name") in nombres:
+            clientes.remove(c)
+    uuids = []
+    for p in wg["usuarios"]:
+        u = uid("wg-usuario", p["nombre"]); uuids.append(u)
+        e = ET.SubElement(clientes, "client", uuid=u)
+        rellenar(e, {"enabled": "1", "name": p["nombre"], "pubkey": clave_publica(privadas[p["nombre"]]), "psk": None,
+                     "tunneladdress": p["ip"] + "/32", "serveraddress": None, "serverport": None, "keepalive": None})
+    servidores = base.find("server/servers")
+    for sv in list(servidores):
+        if sv.findtext("name") == wg["nombre"]:
+            servidores.remove(sv)
+    e = ET.SubElement(servidores, "server", uuid=uid("wg-servidor", wg["nombre"]))
+    rellenar(e, {"enabled": "1", "name": wg["nombre"], "instance": "0", "pubkey": clave_publica(privadas["servidor"]),
+                 "privkey": privadas["servidor"], "port": wg["puerto"], "mtu": None, "dns": None,
+                 "tunneladdress": wg["ip_servidor"], "disableroutes": "0", "gateway": None, "carp_depend_on": None,
+                 "peers": ",".join(uuids), "debug": "0", "endpoint": None, "peer_dns": None})
+    ifs = raiz.find("interfaces")
+    quitar(ifs, wg["interfaz"])
+    i = ET.SubElement(ifs, wg["interfaz"])
+    rellenar(i, {"enable": "1", "if": "wg0", "descr": "VPN", "spoofmac": None})
 
 
 def normal(texto):

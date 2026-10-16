@@ -31,8 +31,8 @@ opnsense_claves_vlan: {10: lan, 20: opt1, 30: opt2, 40: opt3, 50: opt4, 60: opt5
 #   "(self)" = el propio firewall · redes_privadas = todas las redes internas (para decir "solo Internet")
 opnsense_reglas:
   # DNS del firewall para todas las VLANs (hasta que exista Bind9, y como respaldo)
-  - { interface: "opt1,opt2,opt3,opt4,opt5", protocol: TCP/UDP, destination_net: "(self)", destination_port: "53", descripcion: "DNS del firewall" }
-  - { interface: "opt1,opt2,opt3,opt4,opt5", protocol: ICMP, destination_net: "(self)", descripcion: "Ping al firewall" }
+  - { interface: "opt1,opt2,opt3,opt4,opt5,opt6", protocol: TCP/UDP, destination_net: "(self)", destination_port: "53", descripcion: "DNS del firewall" }
+  - { interface: "opt1,opt2,opt3,opt4,opt5,opt6", protocol: ICMP, destination_net: "(self)", descripcion: "Ping al firewall" }
   # SERVIDORES: a todo menos a la red de gestión
   - { interface: opt1, source_net: opt1, destination_net: lan, destination_not: "1", descripcion: "Servidores: todo menos gestion" }
   # DMZ: solo Internet (las excepciones hacia servidores se añaden con cada servicio)
@@ -46,3 +46,16 @@ opnsense_reglas:
   # LAB_CAJAS: servidores (despliegue y monitorización) e Internet
   - { interface: opt5, source_net: opt5, destination_net: opt1, descripcion: "Lab cajas: a servidores" }
   - { interface: opt5, source_net: opt5, destination_net: redes_privadas, destination_not: "1", descripcion: "Lab cajas: Internet" }
+  # VPN (opt6 = WireGuard): entrada desde Internet y, dentro, como un empleado desde casa
+  - { interface: wan, protocol: UDP, destination_net: wanip, destination_port: "{{ opnsense_wg_puerto }}", descripcion: "WireGuard desde Internet" }
+  - { interface: opt6, source_net: opt6, destination_net: opt1, descripcion: "VPN: a servidores" }
+  - { interface: opt6, source_net: opt6, destination_net: opt2, descripcion: "VPN: a la DMZ" }
+
+# WireGuard (VPN de teletrabajo; en la fase 4, también las cajas). Claves privadas en el Vault (vault_wg_privadas).
+opnsense_wg_puerto: 51820
+opnsense_wg_red: 10.99.0.0/24
+opnsense_wg_ip_servidor: 10.99.0.1/24
+opnsense_wg_endpoint: "{{ opnsense_wan_ip }}"   # dirección por la que llegan los usuarios (en la sede real, la IP pública)
+opnsense_wg_usuarios:
+  - { nombre: teletrabajo-prueba, ip: 10.99.0.10 }
+opnsense_wg_carpeta_confs: /root/nosub-wireguard   # .conf de cada usuario (fuera del repositorio: llevan su clave privada)

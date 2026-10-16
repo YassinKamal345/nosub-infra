@@ -1,0 +1,13 @@
+# VPN de la sede NoSub — usuario {{ item.nombre }}
+# Generado por Ansible (roles/opnsense). Lleva la clave privada del usuario: no compartir.
+[Interface]
+PrivateKey = {{ vault_wg_privadas[item.nombre] }}
+Address = {{ item.ip }}/32
+DNS = {{ opnsense_wg_ip_servidor | ansible.utils.ipaddr('address') }}
+
+[Peer]
+# Firewall de la sede
+PublicKey = {{ lookup('ansible.builtin.pipe', 'echo ' ~ vault_wg_privadas['servidor'] ~ ' | wg pubkey') }}
+Endpoint = {{ opnsense_wg_endpoint }}:{{ opnsense_wg_puerto }}
+AllowedIPs = {{ opnsense_wg_red }}, {{ vlans | selectattr('nombre', 'in', ['servidores', 'dmz']) | map(attribute='red') | join(', ') }}
+PersistentKeepalive = 25

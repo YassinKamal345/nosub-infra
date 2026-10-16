@@ -16,3 +16,19 @@
 
 - name: Aplicar ya los cambios de red (los siguientes roles los necesitan)
   ansible.builtin.meta: flush_handlers
+
+- name: ¿Está Tailscale instalado?
+  ansible.builtin.stat: { path: /usr/bin/tailscale }
+  register: ts_bin
+
+- name: Rutas que anuncia ahora Tailscale
+  when: ts_bin.stat.exists
+  ansible.builtin.shell: tailscale debug prefs | python3 -c 'import json,sys;print(",".join(sorted(json.load(sys.stdin).get("AdvertiseRoutes") or [])))'
+  register: ts_rutas
+  changed_when: false
+  check_mode: false
+
+- name: Anunciar la red de gestión de la sede en Tailscale
+  when: ts_bin.stat.exists and ts_rutas.stdout != (tailscale_rutas | sort | join(','))
+  ansible.builtin.command: tailscale set --advertise-routes={{ tailscale_rutas | join(',') }}
+  changed_when: true

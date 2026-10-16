@@ -16,5 +16,7 @@
   "vlans": vl,
   "alias": [{"nombre": "redes_privadas", "redes": ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"],
              "descripcion": "Redes privadas (RFC1918): para decir solo Internet"}],
-  "reglas": opnsense_reglas
+  "reglas": opnsense_reglas,
+  "wireguard": {"nombre": "sede", "interfaz": "opt6", "puerto": opnsense_wg_puerto | string,
+                "ip_servidor": opnsense_wg_ip_servidor, "usuarios": opnsense_wg_usuarios}
 } | to_nice_json }}

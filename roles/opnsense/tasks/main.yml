@@ -92,10 +92,11 @@
   environment:
     OPN_CLAVE: "{{ 'opnsense' if opn_primera_vez else opnsense_root_clave }}"
     OPN_CLAVE_ROOT: "{{ opnsense_root_clave }}"
+    OPN_WG_PRIVADAS: "{{ vault_wg_privadas | to_json }}"
   check_mode: false
   register: aplicar
   changed_when: "'CAMBIADO' in aplicar.stdout"
-  no_log: false
+  no_log: false  # el script no imprime secretos
 
 - name: Reiniciar OPNsense para que cargue la configuración nueva
   when: aplicar is changed and not ansible_check_mode
@@ -116,3 +117,16 @@
 - name: Quitar el espacio de red temporal
   ansible.builtin.shell: ip netns del opnboot 2>/dev/null; ip link del vob0 2>/dev/null; true
   changed_when: false
+
+# ---------- 5. Ficheros de los usuarios de la VPN ----------
+- name: Carpeta para los .conf de WireGuard (llevan claves privadas)
+  ansible.builtin.file: { path: "{{ opnsense_wg_carpeta_confs }}", state: directory, mode: "0700" }
+
+- name: Generar el .conf de cada usuario de la VPN
+  ansible.builtin.template:
+    src: wireguard-usuario.conf.j2
+    dest: "{{ opnsense_wg_carpeta_confs }}/{{ item.nombre }}.conf"
+    mode: "0600"
+  loop: "{{ opnsense_wg_usuarios }}"
+  loop_control: { label: "{{ item.nombre }}" }
+  no_log: true

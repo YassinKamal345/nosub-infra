@@ -1,0 +1,5 @@
+# Actualiza las cajas de cliente por la VPN (fase 4).
+- name: Pendiente
+  hosts: localhost
+  gather_facts: false
+  tasks: []

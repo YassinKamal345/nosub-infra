@@ -1,0 +1,3 @@
+# Rol squid
+
+Pendiente.

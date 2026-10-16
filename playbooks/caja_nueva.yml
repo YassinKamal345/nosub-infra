@@ -1,0 +1,5 @@
+# Prepara una caja de cliente nueva (fase 4).
+- name: Pendiente
+  hosts: localhost
+  gather_facts: false
+  tasks: []

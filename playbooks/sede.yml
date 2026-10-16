@@ -1,0 +1,12 @@
+# Monta o actualiza toda la sede. Cada fase añade aquí sus roles.
+- name: Comprobar que llegamos a Proxmox
+  hosts: proxmox
+  gather_facts: true
+  tasks:
+    - name: Versión de Proxmox
+      ansible.builtin.command: pveversion
+      register: pve
+      changed_when: false
+    - name: Mostrarla
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ pve.stdout }}"

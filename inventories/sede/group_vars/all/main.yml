@@ -1,0 +1,13 @@
+# Datos comunes de la sede.
+empresa: NoSub
+dominio_interno: nosub.lan
+
+# VLANs de la sede (ver docs/red.md)
+vlans:
+  - { id: 10, nombre: gestion,     red: 10.10.10.0/24 }
+  - { id: 20, nombre: servidores,  red: 10.10.20.0/24 }
+  - { id: 30, nombre: dmz,         red: 10.10.30.0/24 }
+  - { id: 40, nombre: empleados,   red: 10.10.40.0/24 }
+  - { id: 50, nombre: invitados,   red: 10.10.50.0/24 }
+  - { id: 60, nombre: lab_cajas,   red: 10.10.60.0/24 }
+red_vpn: 10.99.0.0/24

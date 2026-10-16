@@ -10,7 +10,7 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
 
 ## Fase 2 · Base de la sede
 - [x] 2.1 Repositorio con la estructura, Ansible Vault y primer playbook (`sede.yml` llega a Proxmox)
-- [ ] 2.2 Red de laboratorio: bridges y NAT (rol `red_lab`)
+- [x] 2.2 Red de laboratorio: bridges y NAT (rol `red_lab`)
 - [ ] 2.3 Rol `proxmox_vms`: crea VMs y LXC por la API de Proxmox
 - [ ] 2.4 OPNsense: VLANs 10-60, DMZ, WireGuard
 - [ ] 2.5 Gitea + nodo de control Ansible; espejo en GitHub

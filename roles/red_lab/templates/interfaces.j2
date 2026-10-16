@@ -1,0 +1,21 @@
+auto vmbr1
+iface vmbr1 inet manual
+	bridge-ports {{ troncal_puerto }}
+	bridge-stp off
+	bridge-fd 0
+	bridge-vlan-aware yes
+	bridge-vids 2-4094
+#Troncal de la sede NoSub (VLANs 10-60)
+
+auto vmbr2
+iface vmbr2 inet static
+	address {{ wan_lab_prx }}
+	bridge-ports none
+	bridge-stp off
+	bridge-fd 0
+	post-up   iptables -t nat -A POSTROUTING -s {{ wan_lab_red }} -o {{ interfaz_salida }} -j MASQUERADE -m comment --comment nosub-lab
+	post-down iptables -t nat -D POSTROUTING -s {{ wan_lab_red }} -o {{ interfaz_salida }} -j MASQUERADE -m comment --comment nosub-lab
+	post-up   iptables -I FORWARD -i vmbr2 -d {{ red_local }} -j DROP -m comment --comment nosub-lab
+	post-down iptables -D FORWARD -i vmbr2 -d {{ red_local }} -j DROP -m comment --comment nosub-lab
+	post-up   ip route replace {{ red_sede }} via {{ wan_lab_opnsense }} dev vmbr2
+#Enlace Proxmox - OPNsense (WAN de la sede NoSub)

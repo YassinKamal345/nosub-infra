@@ -1,0 +1,10 @@
+# Red local donde está conectado Proxmox (la sede nunca entra aquí)
+red_local: 192.168.1.0/24
+interfaz_salida: vmbr0
+# Troncal de la sede (sin tarjeta física en el laboratorio; en la sede real, p. ej. "nic1")
+troncal_puerto: none
+# Enlace Proxmox <-> OPNsense
+wan_lab_prx: 172.31.255.1/30
+wan_lab_red: 172.31.255.0/30
+wan_lab_opnsense: 172.31.255.2
+red_sede: 10.10.0.0/16

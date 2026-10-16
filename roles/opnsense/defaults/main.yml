@@ -1,0 +1,48 @@
+# Máquina virtual
+opnsense_vmid: 200
+opnsense_version: "26.7"
+opnsense_imagen_sha256: 28d5e2f37e40d87468a924e3006ef10e2ddc6de485b85333d9e3958c84d0cb9d
+opnsense_dir_imagen: /var/lib/vz/template/iso/opnsense
+opnsense_almacen: local-lvm
+opnsense_nucleos: 2
+opnsense_ram: 1536
+opnsense_disco: 8G
+opnsense_puente_troncal: vmbr1   # vtnet0: VLANs de la sede
+opnsense_puente_wan: vmbr2       # vtnet1: salida a Internet
+
+# Acceso: gestión (VLAN 10) una vez configurado; de fábrica (192.168.1.1, sin VLAN) solo la primera vez
+opnsense_ip_gestion: 10.10.10.1
+opnsense_ip_fabrica: 192.168.1.1
+
+# Configuración
+opnsense_hostname: fw
+opnsense_zona_horaria: Europe/Madrid
+opnsense_dns: [9.9.9.9, 1.1.1.1]
+opnsense_wan_ip: 172.31.255.2
+opnsense_wan_mascara: 30
+opnsense_wan_puerta: 172.31.255.1
+opnsense_clave_ssh: /root/.ssh/nosub_ansible.pub   # clave del nodo de control (Ansible) que puede entrar por SSH
+
+# Interfaz de OPNsense para cada VLAN (la de gestión es "lan")
+opnsense_claves_vlan: {10: lan, 20: opt1, 30: opt2, 40: opt3, 50: opt4, 60: opt5}
+
+# Reglas: lo que no está permitido aquí, está bloqueado.
+#   lan = GESTION · opt1 = SERVIDORES · opt2 = DMZ · opt3 = EMPLEADOS · opt4 = INVITADOS · opt5 = LAB_CAJAS
+#   "(self)" = el propio firewall · redes_privadas = todas las redes internas (para decir "solo Internet")
+opnsense_reglas:
+  # DNS del firewall para todas las VLANs (hasta que exista Bind9, y como respaldo)
+  - { interface: "opt1,opt2,opt3,opt4,opt5", protocol: TCP/UDP, destination_net: "(self)", destination_port: "53", descripcion: "DNS del firewall" }
+  - { interface: "opt1,opt2,opt3,opt4,opt5", protocol: ICMP, destination_net: "(self)", descripcion: "Ping al firewall" }
+  # SERVIDORES: a todo menos a la red de gestión
+  - { interface: opt1, source_net: opt1, destination_net: lan, destination_not: "1", descripcion: "Servidores: todo menos gestion" }
+  # DMZ: solo Internet (las excepciones hacia servidores se añaden con cada servicio)
+  - { interface: opt2, source_net: opt2, destination_net: redes_privadas, destination_not: "1", descripcion: "DMZ: solo Internet" }
+  # EMPLEADOS: servidores (intranet), DMZ (extranet) e Internet
+  - { interface: opt3, source_net: opt3, destination_net: opt1, descripcion: "Empleados: a servidores" }
+  - { interface: opt3, source_net: opt3, destination_net: opt2, descripcion: "Empleados: a la DMZ" }
+  - { interface: opt3, source_net: opt3, destination_net: redes_privadas, destination_not: "1", descripcion: "Empleados: Internet" }
+  # INVITADOS: solo Internet, aislada
+  - { interface: opt4, source_net: opt4, destination_net: redes_privadas, destination_not: "1", descripcion: "Invitados: solo Internet" }
+  # LAB_CAJAS: servidores (despliegue y monitorización) e Internet
+  - { interface: opt5, source_net: opt5, destination_net: opt1, descripcion: "Lab cajas: a servidores" }
+  - { interface: opt5, source_net: opt5, destination_net: redes_privadas, destination_not: "1", descripcion: "Lab cajas: Internet" }

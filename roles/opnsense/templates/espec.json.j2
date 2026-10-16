@@ -1,0 +1,20 @@
+{%- set vl = [] -%}
+{%- for v in vlans -%}
+{%- set _ = vl.append({"tag": v.id, "nombre": v.nombre, "clave": opnsense_claves_vlan[v.id],
+     "ip": v.red | ansible.utils.nthhost(1), "mascara": (v.red | ansible.utils.ipaddr('prefix')) | string}) -%}
+{%- endfor -%}
+{{ {
+  "hostname": opnsense_hostname,
+  "dominio": dominio_interno,
+  "zona_horaria": opnsense_zona_horaria,
+  "dns": opnsense_dns,
+  "root_clave_ssh_b64": opnsense_clave_ssh_texto | b64encode,
+  "ssh_interfaz": "lan",
+  "troncal": "vtnet0",
+  "wan": {"if": "vtnet1", "ip": opnsense_wan_ip, "mascara": opnsense_wan_mascara | string,
+          "gateway": "WAN_PRX", "puerta": opnsense_wan_puerta},
+  "vlans": vl,
+  "alias": [{"nombre": "redes_privadas", "redes": ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"],
+             "descripcion": "Redes privadas (RFC1918): para decir solo Internet"}],
+  "reglas": opnsense_reglas
+} | to_nice_json }}

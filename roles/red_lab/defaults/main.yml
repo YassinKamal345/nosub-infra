@@ -8,3 +8,7 @@ wan_lab_prx: 172.31.255.1/30
 wan_lab_red: 172.31.255.0/30
 wan_lab_opnsense: 172.31.255.2
 red_sede: 10.10.0.0/16
+# Proxmox dentro de la VLAN de gestión (desde aquí se administra la sede)
+vlan_gestion: 10
+ip_gestion_prx: 10.10.10.2/24
+ip_gestion_opnsense: 10.10.10.1

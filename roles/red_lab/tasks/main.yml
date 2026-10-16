@@ -13,3 +13,6 @@
     insertbefore: "^source /etc/network/interfaces.d"
     backup: true
   notify: Recargar red
+
+- name: Aplicar ya los cambios de red (los siguientes roles los necesitan)
+  ansible.builtin.meta: flush_handlers

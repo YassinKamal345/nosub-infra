@@ -3,5 +3,6 @@
   changed_when: true
 
 - name: Recargar red
-  ansible.builtin.command: ifreload -a
+  # si cambia un bloque con VLANs, el primer ifreload a veces falla al rehacer vmbr1.10; el segundo funciona
+  ansible.builtin.shell: ifreload -a || { sleep 3; ifreload -a; }
   changed_when: true

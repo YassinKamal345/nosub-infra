@@ -11,3 +11,6 @@ vlans:
   - { id: 50, nombre: invitados,   red: 10.10.50.0/24 }
   - { id: 60, nombre: lab_cajas,   red: 10.10.60.0/24 }
 red_vpn: 10.99.0.0/24
+
+# Contraseñas (el valor real está cifrado en vault.yml)
+opnsense_root_clave: "{{ vault_opnsense_root_clave }}"

@@ -1,0 +1,118 @@
+# ---------- 1. Imagen oficial (preinstalada, "nano") ----------
+- name: Carpeta de imágenes
+  ansible.builtin.file: { path: "{{ opnsense_dir_imagen }}", state: directory, mode: "0755" }
+
+- name: Descargar OPNsense {{ opnsense_version }} (comprobando su sha256)
+  ansible.builtin.get_url:
+    url: "https://pkg.opnsense.org/releases/mirror/OPNsense-{{ opnsense_version }}-nano-amd64.img.bz2"
+    dest: "{{ opnsense_dir_imagen }}/OPNsense-{{ opnsense_version }}-nano-amd64.img.bz2"
+    checksum: "sha256:{{ opnsense_imagen_sha256 }}"
+    mode: "0644"
+
+- name: Descomprimir la imagen
+  ansible.builtin.command:
+    cmd: bunzip2 -k OPNsense-{{ opnsense_version }}-nano-amd64.img.bz2
+    chdir: "{{ opnsense_dir_imagen }}"
+    creates: "{{ opnsense_dir_imagen }}/OPNsense-{{ opnsense_version }}-nano-amd64.img"
+
+# ---------- 2. Máquina virtual ----------
+- name: ¿Existe ya la VM?
+  ansible.builtin.stat: { path: "/etc/pve/qemu-server/{{ opnsense_vmid }}.conf" }
+  register: vm_conf
+
+- name: Crear la VM a partir de la imagen
+  when: not vm_conf.stat.exists
+  ansible.builtin.shell: |
+    set -e
+    qm create {{ opnsense_vmid }} --name opnsense --ostype other --machine q35 --cpu host \
+      --cores {{ opnsense_nucleos }} --memory {{ opnsense_ram }} --balloon 0 \
+      --net0 virtio,bridge={{ opnsense_puente_troncal }} --net1 virtio,bridge={{ opnsense_puente_wan }} \
+      --scsihw virtio-scsi-single --serial0 socket --vga std --onboot 1 --startup order=1 \
+      --tags sede,firewall --description "Firewall de la sede NoSub (OPNsense {{ opnsense_version }}). Gestionado por Ansible: nosub-infra/roles/opnsense"
+    qm importdisk {{ opnsense_vmid }} {{ opnsense_dir_imagen }}/OPNsense-{{ opnsense_version }}-nano-amd64.img {{ opnsense_almacen }} --format raw
+    qm set {{ opnsense_vmid }} --scsi0 {{ opnsense_almacen }}:vm-{{ opnsense_vmid }}-disk-0,iothread=1,discard=on --boot order=scsi0
+    qm resize {{ opnsense_vmid }} scsi0 {{ opnsense_disco }}
+  changed_when: true
+
+- name: Encenderla si está apagada
+  ansible.builtin.shell: qm status {{ opnsense_vmid }} | grep -q running || qm start {{ opnsense_vmid }}
+  register: arranque
+  changed_when: false
+
+# ---------- 3. ¿Por dónde se entra? ----------
+- name: ¿Responde ya en la red de gestión?
+  ansible.builtin.uri:
+    url: "https://{{ opnsense_ip_gestion }}/"
+    validate_certs: false
+    timeout: 5
+  register: por_gestion
+  failed_when: false
+
+- name: Primera vez - espacio de red temporal para llegar a la IP de fábrica sin tocar la red de prx
+  when: por_gestion.status | default(-1) != 200
+  ansible.builtin.shell: |
+    ip netns add opnboot 2>/dev/null || true
+    ip link show vob0 >/dev/null 2>&1 || { ip link add vob0 type veth peer name vob1; ip link set vob1 netns opnboot; }
+    ip link set vob0 master {{ opnsense_puente_troncal }} up
+    ip netns exec opnboot ip addr replace 192.168.1.2/24 dev vob1
+    ip netns exec opnboot ip link set vob1 up
+    for i in $(seq 1 60); do
+      ip netns exec opnboot curl -sk -m 3 -o /dev/null https://{{ opnsense_ip_fabrica }}/ && exit 0; sleep 5
+    done; echo "OPNsense no responde en {{ opnsense_ip_fabrica }}"; exit 1
+  changed_when: false
+
+- name: Guardar cómo entrar
+  ansible.builtin.set_fact:
+    opn_primera_vez: "{{ por_gestion.status | default(-1) != 200 }}"
+
+# ---------- 4. Aplicar la configuración ----------
+- name: Leer la clave SSH del nodo de control
+  ansible.builtin.slurp: { src: "{{ opnsense_clave_ssh }}" }
+  register: clave_ssh
+
+- name: Script que aplica la configuración
+  ansible.builtin.copy:
+    src: opnsense-aplicar.py
+    dest: /usr/local/lib/nosub/opnsense-aplicar.py
+    mode: "0755"
+
+- name: Especificación (qué debe tener OPNsense)
+  ansible.builtin.template:
+    src: espec.json.j2
+    dest: /usr/local/lib/nosub/opnsense-espec.json
+    mode: "0600"
+  vars:
+    opnsense_clave_ssh_texto: "{{ clave_ssh.content | b64decode | trim }}"
+
+- name: Aplicar la configuración en OPNsense
+  ansible.builtin.command:
+    argv: "{{ (['ip', 'netns', 'exec', 'opnboot'] if opn_primera_vez else []) + ['/usr/local/lib/nosub/opnsense-aplicar.py',
+            'https://' ~ (opnsense_ip_fabrica if opn_primera_vez else opnsense_ip_gestion), '/usr/local/lib/nosub/opnsense-espec.json']
+            + (['--simular'] if ansible_check_mode else []) }}"
+  environment:
+    OPN_CLAVE: "{{ 'opnsense' if opn_primera_vez else opnsense_root_clave }}"
+    OPN_CLAVE_ROOT: "{{ opnsense_root_clave }}"
+  check_mode: false
+  register: aplicar
+  changed_when: "'CAMBIADO' in aplicar.stdout"
+  no_log: false
+
+- name: Reiniciar OPNsense para que cargue la configuración nueva
+  when: aplicar is changed and not ansible_check_mode
+  ansible.builtin.command: qm reboot {{ opnsense_vmid }} --timeout 120
+  changed_when: true
+
+- name: Esperar a que vuelva tras el reinicio (por la red de gestión)
+  when: aplicar is changed and not ansible_check_mode
+  ansible.builtin.uri:
+    url: "https://{{ opnsense_ip_gestion }}/"
+    validate_certs: false
+    timeout: 5
+  register: vuelta
+  until: vuelta.status | default(-1) == 200
+  retries: 60
+  delay: 5
+
+- name: Quitar el espacio de red temporal
+  ansible.builtin.shell: ip netns del opnboot 2>/dev/null; ip link del vob0 2>/dev/null; true
+  changed_when: false

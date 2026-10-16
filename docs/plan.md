@@ -12,11 +12,11 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
 - [x] 2.1 Repositorio con la estructura, Ansible Vault y primer playbook (`sede.yml` llega a Proxmox)
 - [x] 2.2 Red de laboratorio: bridges y NAT (rol `red_lab`)
 - [ ] 2.3 Rol `proxmox_vms`: crea VMs y LXC por la API de Proxmox
-- [ ] 2.4 OPNsense: VLANs 10-60, DMZ, WireGuard
+- [x] 2.4 OPNsense: VLANs 10-60, DMZ y reglas (WireGuard pendiente)
 - [ ] 2.5 Gitea + nodo de control Ansible; espejo en GitHub
 - [ ] 2.6 Planos de red y configs de routers/switches/AP
 
 ## Fase 3 · Servicios de la sede
-- [ ] Bind9 + Kea DHCP + Squid · PostgreSQL (Rocky) · Prometheus + Grafana (panel ADMIN) + Uptime Kuma
+- [ ] Bind9 + Kea DHCP + Squid · PostgreSQL (Rocky) · Prometheus + Grafana (panel ADMIN) + Uptime Kuma (sin Zabbix: decidido 2026-10-16 para ahorrar RAM)
 - [ ] Intranet y extranet con PostgreSQL · Traefik con HTTPS en la DMZ
 - [ ] Prueba: borrar la sede y reconstruirla con `sede.yml`

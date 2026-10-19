@@ -5,7 +5,7 @@ OPNsense guarda toda su configuración en un único config.xml. Este script:
   1. Entra en la web de OPNsense (como una persona: usuario y contraseña).
   2. Descarga el config.xml actual.
   3. Le aplica lo que dice la especificación (JSON generado por Ansible):
-     sistema, WAN, VLANs, interfaces, puerta de enlace, alias y reglas.
+     sistema, WAN, VLANs, interfaces, puertas de enlace, rutas, alias y reglas.
      Lo que gestiona el repositorio se marca con uuid fijos; lo demás no se toca.
   4. Si el resultado es distinto, lo sube con "Restaurar". Después hay que reiniciar OPNsense\n     (lo hace Ansible con qm reboot): la restauración sola no activa las VLANs nuevas.
 
@@ -191,6 +191,23 @@ def aplicar(raiz, esp):
                  "interface": "wan", "ipprotocol": "inet", "gateway": esp["wan"]["puerta"], "defaultgw": "1",
                  "fargw": "0", "monitor_disable": "1", "monitor_noroute": "0", "monitor_killstates": "0",
                  "monitor_killstates_priority": "0", "force_down": "0", "nosync": "0", "priority": "255", "weight": "1"})
+
+    # rutas estáticas (p. ej. a los administradores que entran por Tailscale a través de Proxmox)
+    rutas = hijo(raiz, "staticroutes")
+    for r in esp["rutas"]:
+        for g in list(gws):
+            if g.findtext("name") == r["puerta"]:
+                gws.remove(g)
+        g = ET.SubElement(gws, "gateway_item", uuid=uid("gw", r["puerta"]))
+        rellenar(g, {"disabled": "0", "name": r["puerta"], "descr": r["descripcion_puerta"],
+                     "interface": r["interfaz"], "ipprotocol": "inet", "gateway": r["ip_puerta"], "defaultgw": "0",
+                     "fargw": "0", "monitor_disable": "1", "monitor_noroute": "0", "monitor_killstates": "0",
+                     "monitor_killstates_priority": "0", "force_down": "0", "nosync": "0", "priority": "255", "weight": "1"})
+        for x in list(rutas):
+            if x.findtext("network") == r["red"]:
+                rutas.remove(x)
+        e = ET.SubElement(rutas, "route", uuid=uid("ruta", r["red"]))
+        rellenar(e, {"network": r["red"], "gateway": r["puerta"], "descr": r["descripcion"], "disabled": "0"})
 
     # alias
     fw = opn.find("Firewall")

@@ -32,3 +32,13 @@
   when: ts_bin.stat.exists and ts_rutas.stdout != (tailscale_rutas | sort | join(','))
   ansible.builtin.command: tailscale set --advertise-routes={{ tailscale_rutas | join(',') }}
   changed_when: true
+
+- name: Que Tailscale no cambie la dirección de los administradores (el firewall ve su IP 100.x real)
+  # Con el cambio de dirección (SNAT), la respuesta de un servidor de la sede cruza el switch virtual
+  # de Proxmox camino del firewall y Proxmox la "desdisfraza" antes de tiempo: el firewall la descarta.
+  when: ts_bin.stat.exists
+  ansible.builtin.shell: |
+    tailscale debug prefs | python3 -c 'import json,sys;sys.exit(0 if json.load(sys.stdin).get("NoSNAT") else 1)' && exit 0
+    tailscale set --snat-subnet-routes=false && echo CAMBIO
+  register: ts_snat
+  changed_when: "'CAMBIO' in ts_snat.stdout"

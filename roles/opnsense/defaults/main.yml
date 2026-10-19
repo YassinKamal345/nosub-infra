@@ -29,6 +29,12 @@ opnsense_administradores:
 # Interfaz de OPNsense para cada VLAN (la de gestión es "lan")
 opnsense_claves_vlan: {10: lan, 20: opt1, 30: opt2, 40: opt3, 50: opt4, 60: opt5}
 
+# Rutas estáticas. Los administradores entran por Tailscale a través de Proxmox (10.10.10.2) con su IP
+# real de Tailscale (100.x): así el firewall sabe quién entra (Proxmox no les cambia la dirección).
+opnsense_rutas:
+  - { red: 100.64.0.0/10, puerta: PROXMOX_TAILSCALE, ip_puerta: 10.10.10.2, interfaz: lan,
+      descripcion_puerta: "Proxmox (entrada de Tailscale)", descripcion: "Administradores por Tailscale" }
+
 # Reglas: lo que no está permitido aquí, está bloqueado.
 #   lan = GESTION · opt1 = SERVIDORES · opt2 = DMZ · opt3 = EMPLEADOS · opt4 = INVITADOS · opt5 = LAB_CAJAS
 #   "(self)" = el propio firewall · redes_privadas = todas las redes internas (para decir "solo Internet")
@@ -36,6 +42,8 @@ opnsense_reglas:
   # DNS del firewall para todas las VLANs (hasta que exista Bind9, y como respaldo)
   - { interface: "opt1,opt2,opt3,opt4,opt5,opt6", protocol: TCP/UDP, destination_net: "(self)", destination_port: "53", descripcion: "DNS del firewall" }
   - { interface: "opt1,opt2,opt3,opt4,opt5,opt6", protocol: ICMP, destination_net: "(self)", descripcion: "Ping al firewall" }
+  # ADMINISTRADORES por Tailscale (entran por gestión con su IP 100.x): como la red de gestión, a toda la sede
+  - { interface: lan, source_net: admins_tailscale, destination_net: redes_privadas, descripcion: "Administradores por Tailscale" }
   # SERVIDORES: a todo menos a la red de gestión
   - { interface: opt1, source_net: opt1, destination_net: lan, destination_not: "1", descripcion: "Servidores: todo menos gestion" }
   # DMZ: solo Internet (las excepciones hacia servidores se añaden con cada servicio)

@@ -16,7 +16,10 @@
           "gateway": "WAN_PRX", "puerta": opnsense_wan_puerta},
   "vlans": vl,
   "alias": [{"nombre": "redes_privadas", "redes": ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"],
-             "descripcion": "Redes privadas (RFC1918): para decir solo Internet"}],
+             "descripcion": "Redes privadas (RFC1918): para decir solo Internet"},
+            {"nombre": "admins_tailscale", "redes": ["100.64.0.0/10"],
+             "descripcion": "Administradores que entran por Tailscale (a traves de Proxmox)"}],
+  "rutas": opnsense_rutas,
   "reglas": opnsense_reglas,
   "wireguard": {"nombre": "sede", "interfaz": "opt6", "puerto": opnsense_wg_puerto | string,
                 "ip_servidor": opnsense_wg_ip_servidor, "usuarios": opnsense_wg_usuarios}

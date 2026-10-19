@@ -1,0 +1,42 @@
+# Conexión con la API de Proxmox (el rol se ejecuta en el propio Proxmox)
+pve_api_host: 127.0.0.1
+pve_nodo: "{{ ansible_hostname }}"
+
+# Usuario propio para Ansible, con solo los permisos que necesita (no root)
+pve_usuario: ansible@pve
+pve_rol: NoSubAnsible
+pve_privilegios:
+  - VM.Allocate
+  - VM.Audit
+  - VM.Config.CPU
+  - VM.Config.Disk
+  - VM.Config.Memory
+  - VM.Config.Network
+  - VM.Config.Options
+  - VM.PowerMgmt
+  - Datastore.AllocateSpace
+  - Datastore.Audit
+  - SDN.Use
+  - Sys.Audit
+pve_token: nosub
+pve_token_fichero: /root/.nosub-pve-token   # el secreto del token vive aquí (0600), nunca en el repositorio
+
+# Plantillas de sistema (se descargan con pveam si faltan)
+pve_plantillas:
+  debian: debian-13-standard_13.6-1_amd64.tar.zst
+  ubuntu: ubuntu-24.04-standard_24.04-2_amd64.tar.zst
+  rocky: rockylinux-9-default_20240912_amd64.tar.xz
+
+# Valores por defecto de cada contenedor (cada uno puede cambiarlos)
+ct_defecto:
+  so: debian
+  nucleos: 1
+  ram: 512
+  swap: 256
+  disco: 8
+  almacen: local-lvm
+  puente: vmbr1
+  arranque: 2      # después de OPNsense (orden 1)
+
+ct_clave_ssh: /root/.ssh/nosub_ansible.pub   # clave del nodo de control
+ct_zona_horaria: Europe/Madrid

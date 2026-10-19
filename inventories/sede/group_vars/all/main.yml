@@ -14,3 +14,14 @@ red_vpn: 10.99.0.0/24
 
 # Contraseñas (el valor real está cifrado en vault.yml)
 opnsense_root_clave: "{{ vault_opnsense_root_clave }}"
+
+# Contenedores LXC de la sede (los crea el rol proxmox_vms).
+# VMID = 2 + VLAN + número: servidores 220-229, DMZ 230-239 (OPNsense es la 200).
+# Las que aún no se usan están comentadas: se activan cuando su rol esté listo.
+contenedores:
+  - { vmid: 220, nombre: gitea, vlan: 20, ip: 10.10.20.10, nucleos: 2, ram: 1024, disco: 16, descripcion: "Gitea + nodo de control Ansible" }
+  # - { vmid: 221, nombre: red-int,  vlan: 20, ip: 10.10.20.11, descripcion: "Bind9 + Kea DHCP + Squid" }
+  # - { vmid: 222, nombre: bbdd,     vlan: 20, ip: 10.10.20.12, so: rocky, ram: 1024, descripcion: "PostgreSQL" }
+  # - { vmid: 223, nombre: monitor,  vlan: 20, ip: 10.10.20.13, ram: 1024, descripcion: "Prometheus + Grafana + Uptime Kuma" }
+  # - { vmid: 224, nombre: intranet, vlan: 20, ip: 10.10.20.14, descripcion: "Intranet" }
+  # - { vmid: 230, nombre: traefik,  vlan: 30, ip: 10.10.30.10, descripcion: "Traefik + extranet" }

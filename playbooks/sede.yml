@@ -5,3 +5,4 @@
   roles:
     - red_lab
     - opnsense
+    - proxmox_vms

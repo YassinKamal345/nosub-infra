@@ -1,0 +1,110 @@
+# ---------- 1. Usuario y token de Ansible en Proxmox ----------
+- name: Rol con los permisos justos para crear máquinas
+  ansible.builtin.shell: |
+    privs="{{ pve_privilegios | join(',') }}"
+    actual=$(pveum role list --output-format json | python3 -c 'import json,sys;r=[x for x in json.load(sys.stdin) if x["roleid"]=="{{ pve_rol }}"];print(",".join(sorted(r[0]["privs"].split(","))) if r else "")')
+    deseado=$(echo "$privs" | tr ',' '\n' | sort | paste -sd,)
+    if [ -z "$actual" ]; then pveum role add {{ pve_rol }} --privs "$privs"; echo CAMBIO
+    elif [ "$actual" != "$deseado" ]; then pveum role modify {{ pve_rol }} --privs "$privs"; echo CAMBIO; fi
+  register: r_rol
+  changed_when: "'CAMBIO' in r_rol.stdout"
+
+- name: Usuario {{ pve_usuario }} con ese rol en todo Proxmox
+  ansible.builtin.shell: |
+    pveum user list --output-format json | grep -q '"userid":"{{ pve_usuario }}"' || { pveum user add {{ pve_usuario }} --comment "Ansible (nosub-infra)"; echo CAMBIO; }
+    pveum acl list --output-format json | python3 -c 'import json,sys;sys.exit(0 if any(a["path"]=="/" and a["ugid"]=="{{ pve_usuario }}" and a["roleid"]=="{{ pve_rol }}" for a in json.load(sys.stdin)) else 1)' \
+      || { pveum acl modify / --users {{ pve_usuario }} --roles {{ pve_rol }}; echo CAMBIO; }
+  register: r_usuario
+  changed_when: "'CAMBIO' in r_usuario.stdout"
+
+- name: ¿Tenemos ya el secreto del token?
+  ansible.builtin.stat: { path: "{{ pve_token_fichero }}" }
+  register: token_fichero
+
+- name: Crear el token (el secreto solo se ve una vez, se guarda en {{ pve_token_fichero }})
+  when: not token_fichero.stat.exists
+  ansible.builtin.shell: |
+    set -e
+    umask 077
+    pveum user token remove {{ pve_usuario }} {{ pve_token }} 2>/dev/null || true
+    pveum user token add {{ pve_usuario }} {{ pve_token }} --privsep 0 --comment "nosub-infra" --output-format json \
+      | python3 -c 'import json,sys;print(json.load(sys.stdin)["value"])' > {{ pve_token_fichero }}
+  changed_when: true
+
+- name: Leer el secreto del token
+  ansible.builtin.slurp: { src: "{{ pve_token_fichero }}" }
+  register: token_leido
+  no_log: true
+
+- name: Leer la clave pública del nodo de control
+  ansible.builtin.slurp: { src: "{{ ct_clave_ssh }}" }
+  register: clave_ssh
+
+# ---------- 2. Plantillas ----------
+- name: Descargar las plantillas que se usan
+  ansible.builtin.shell: |
+    pveam list local | grep -q "{{ pve_plantillas[item] }}" && exit 0
+    pveam update >/dev/null && pveam download local {{ pve_plantillas[item] }} && echo CAMBIO
+  loop: "{{ contenedores | map(attribute='so', default=ct_defecto.so) | unique }}"
+  register: r_plantillas
+  changed_when: "'CAMBIO' in r_plantillas.stdout"
+
+# ---------- 3. Contenedores ----------
+- name: Crear los contenedores por la API
+  vars:
+    ct: "{{ ct_defecto | combine(item) }}"
+    vlan: "{{ vlans | selectattr('id', 'eq', ct.vlan) | first }}"
+  community.proxmox.proxmox:
+    api_host: "{{ pve_api_host }}"
+    api_user: "{{ pve_usuario }}"
+    api_token_id: "{{ pve_token }}"
+    api_token_secret: "{{ token_leido.content | b64decode | trim }}"
+    node: "{{ pve_nodo }}"
+    vmid: "{{ ct.vmid }}"
+    hostname: "{{ ct.nombre }}"
+    ostemplate: "local:vztmpl/{{ pve_plantillas[ct.so] }}"
+    cores: "{{ ct.nucleos }}"
+    memory: "{{ ct.ram }}"
+    swap: "{{ ct.swap }}"
+    disk_volume: { storage: "{{ ct.almacen }}", size: "{{ ct.disco }}" }
+    netif:
+      net0: "name=eth0,bridge={{ ct.puente }},tag={{ ct.vlan }},ip={{ ct.ip }}/{{ vlan.red | ansible.utils.ipaddr('prefix') }},gw={{ vlan.red | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}"
+    nameserver: "{{ vlan.red | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}"
+    searchdomain: "{{ dominio_interno }}"
+    pubkey: "{{ clave_ssh.content | b64decode | trim }}"
+    timezone: "{{ ct_zona_horaria }}"
+    unprivileged: true
+    features: [nesting=1]
+    onboot: true
+    startup: ["order={{ ct.arranque }}"]
+    tags: "{{ ['sede', 'vlan' ~ ct.vlan] + (ct.etiquetas | default([])) }}"
+    description: "{{ ct.descripcion }}. Gestionado por Ansible: nosub-infra/roles/proxmox_vms"
+    state: present
+    update: false
+  loop: "{{ contenedores }}"
+  loop_control: { label: "{{ item.vmid }} {{ item.nombre }} {{ item.ip }}" }
+
+- name: Encenderlos
+  ansible.builtin.shell: pct status {{ item.vmid }} | grep -q running || { pct start {{ item.vmid }} && echo CAMBIO; }
+  loop: "{{ contenedores }}"
+  loop_control: { label: "{{ item.vmid }} {{ item.nombre }}" }
+  register: r_arranque
+  changed_when: "'CAMBIO' in r_arranque.stdout"
+
+- name: Que se presenten al firewall (si se recrea uno, el firewall aún recuerda la MAC antigua)
+  vars:
+    vlan: "{{ vlans | selectattr('id', 'eq', item.vlan) | first }}"
+  ansible.builtin.command: pct exec {{ item.vmid }} -- ping -c1 -W2 {{ vlan.red | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}
+  loop: "{{ contenedores }}"
+  loop_control: { label: "{{ item.nombre }}" }
+  changed_when: false
+  failed_when: false
+  retries: 5
+  delay: 2
+  register: r_ping
+  until: r_ping.rc == 0
+
+- name: Esperar a que respondan por SSH
+  ansible.builtin.wait_for: { host: "{{ item.ip }}", port: 22, timeout: 120 }
+  loop: "{{ contenedores }}"
+  loop_control: { label: "{{ item.nombre }} {{ item.ip }}" }

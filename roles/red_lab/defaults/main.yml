@@ -13,6 +13,6 @@ vlan_gestion: 10
 ip_gestion_prx: 10.10.10.2/24
 ip_gestion_opnsense: 10.10.10.1
 # Redes de la sede que Proxmox anuncia en Tailscale (acceso remoto de administración).
-# Solo la de gestión; nunca la red local (en el laboratorio es la de la oficina). Vacío = no anunciar.
+# Gestión (firewall, Proxmox) y servidores (Gitea, Grafana...); nunca la red local (en el laboratorio es la de la oficina). Vacío = no anunciar.
 # Hay que aprobar la ruta una vez en la consola de Tailscale (Machines -> prx -> Edit route settings).
-tailscale_rutas: [10.10.10.0/24]
+tailscale_rutas: [10.10.10.0/24, 10.10.20.0/24]

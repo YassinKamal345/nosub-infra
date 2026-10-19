@@ -22,6 +22,8 @@ opnsense_wan_ip: 172.31.255.2
 opnsense_wan_mascara: 30
 opnsense_wan_puerta: 172.31.255.1
 opnsense_clave_ssh: /root/.ssh/nosub_ansible.pub   # clave del nodo de control (Ansible) que puede entrar por SSH
+# Otros nombres con los que se abre la web (p. ej. a través de un proxy inverso)
+opnsense_nombres_web: []
 # Administradores personales de la web (además de root). Contraseña en el Vault: vault_opnsense_admins.<nombre>
 opnsense_administradores:
   - { nombre: yassin, descripcion: "Yassin Kamal" }

@@ -150,6 +150,8 @@ def aplicar(raiz, esp):
         poner_clave(u, claves[a["nombre"]])
         if str(2000 + n) not in [m.text for m in admins.findall("member")]:
             ET.SubElement(admins, "member").text = str(2000 + n)
+    # otros nombres con los que se entra a la web (si no, OPNsense lo toma por un ataque "DNS rebind")
+    hijo(hijo(s, "webgui"), "althostnames", " ".join(esp["nombres_web"]))
     ssh = hijo(s, "ssh")
     rellenar(ssh, {"group": "admins", "enabled": "enabled", "permitrootlogin": "1", "interfaces": esp["ssh_interfaz"]})
     quitar(ssh, "passwordauth")

@@ -11,6 +11,7 @@ gitea_ip: "{{ ansible_host }}"
 gitea_puerto_web: 3000
 gitea_puerto_ssh: 2222
 gitea_nombre: "Gitea de NoSub"
+gitea_url: "http://{{ gitea_ip }}:{{ gitea_puerto_web }}/"   # dirección con la que la gente abre Gitea
 
 # Base de datos: SQLite de momento; en la fase 3 pasa a PostgreSQL (máquina bbdd)
 gitea_bd: sqlite3

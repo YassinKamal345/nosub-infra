@@ -93,6 +93,7 @@
     OPN_CLAVE: "{{ 'opnsense' if opn_primera_vez else opnsense_root_clave }}"
     OPN_CLAVE_ROOT: "{{ opnsense_root_clave }}"
     OPN_WG_PRIVADAS: "{{ vault_wg_privadas | to_json }}"
+    OPN_ADMINS: "{{ vault_opnsense_admins | to_json }}"
   check_mode: false
   register: aplicar
   changed_when: "'CAMBIADO' in aplicar.stdout"

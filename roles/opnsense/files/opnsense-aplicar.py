@@ -10,7 +10,8 @@ OPNsense guarda toda su configuración en un único config.xml. Este script:
   4. Si el resultado es distinto, lo sube con "Restaurar". Después hay que reiniciar OPNsense\n     (lo hace Ansible con qm reboot): la restauración sola no activa las VLANs nuevas.
 
 Uso:  opnsense-aplicar.py URL ESPEC.json [--simular]
-Variables: OPN_CLAVE (para entrar ahora), OPN_CLAVE_ROOT (la que debe tener root) y
+Variables: OPN_CLAVE (para entrar ahora), OPN_CLAVE_ROOT (la que debe tener root), OPN_ADMINS (JSON
+usuario -> contraseña de los administradores personales) y
 OPN_WG_PRIVADAS (JSON con las claves privadas de WireGuard: servidor y cada usuario). Imprime CAMBIADO o SIN CAMBIOS en la última línea.
 """
 import base64, json, os, re, sys, time, uuid
@@ -110,6 +111,17 @@ REGLA_BASE = {
 }
 
 
+def poner_clave(usuario, clave):
+    # solo se cambia si no coincide (el hash lleva sal aleatoria: rehacerlo siempre no sería idempotente)
+    actual = (usuario.findtext("password") or "").replace("$2y$", "$2b$", 1).encode()
+    try:
+        vale = bcrypt.checkpw(clave.encode(), actual)
+    except ValueError:
+        vale = False
+    if not vale:
+        hijo(usuario, "password", bcrypt.hashpw(clave.encode(), bcrypt.gensalt(10)).decode().replace("$2b$", "$2y$", 1))
+
+
 def aplicar(raiz, esp):
     quitar(raiz, "trigger_initial_wizard")
 
@@ -121,16 +133,21 @@ def aplicar(raiz, esp):
     for d in esp["dns"]:
         ET.SubElement(s, "dnsserver").text = d
     root = [u for u in s.findall("user") if u.findtext("name") == "root"][0]
-    # la contraseña solo se cambia si no coincide (el hash lleva sal aleatoria: rehacerlo siempre no sería idempotente)
-    clave = os.environ["OPN_CLAVE_ROOT"].encode()
-    actual = (root.findtext("password") or "").replace("$2y$", "$2b$", 1).encode()
-    try:
-        vale = bcrypt.checkpw(clave, actual)
-    except ValueError:
-        vale = False
-    if not vale:
-        hijo(root, "password", bcrypt.hashpw(clave, bcrypt.gensalt(10)).decode().replace("$2b$", "$2y$", 1))
+    poner_clave(root, os.environ["OPN_CLAVE_ROOT"])
     hijo(root, "authorizedkeys", esp["root_clave_ssh_b64"])
+    # administradores personales (grupo admins); sus contraseñas vienen del Vault
+    claves = json.loads(os.environ.get("OPN_ADMINS", "{}"))
+    admins = [g for g in s.findall("group") if g.findtext("name") == "admins"][0]
+    for n, a in enumerate(esp["administradores"]):
+        u = next((x for x in s.findall("user") if x.findtext("name") == a["nombre"]), None)
+        if u is None:
+            u = ET.Element("user", uuid=uid("usuario", a["nombre"]))
+            s.insert(list(s).index(root) + 1 + n, u)
+        rellenar(u, {"uid": str(2000 + n), "name": a["nombre"], "disabled": "0", "scope": "user",
+                     "descr": a["descripcion"], "expires": None, "authorizedkeys": None, "shell": None})
+        poner_clave(u, claves[a["nombre"]])
+        if str(2000 + n) not in [m.text for m in admins.findall("member")]:
+            ET.SubElement(admins, "member").text = str(2000 + n)
     ssh = hijo(s, "ssh")
     rellenar(ssh, {"group": "admins", "enabled": "enabled", "permitrootlogin": "1", "interfaces": esp["ssh_interfaz"]})
     quitar(ssh, "passwordauth")

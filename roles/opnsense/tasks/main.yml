@@ -47,6 +47,10 @@
     timeout: 5
   register: por_gestion
   failed_when: false
+  # si la VM ya existía puede estar reiniciándose: esperarla hasta 2 min antes de suponer que es nueva
+  until: por_gestion.status | default(-1) == 200
+  retries: "{{ 24 if vm_conf.stat.exists else 0 }}"
+  delay: 5
 
 - name: Primera vez - espacio de red temporal para llegar a la IP de fábrica sin tocar la red de prx
   when: por_gestion.status | default(-1) != 200

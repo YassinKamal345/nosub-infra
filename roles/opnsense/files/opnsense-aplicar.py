@@ -41,9 +41,11 @@ class Web:
                 r = self.s.post(url + "/", data={"usernamefld": usuario, "passwordfld": clave, "login": "1", k: v}, timeout=15)
                 if "usernamefld" not in r.text:
                     return
-                error = "Login incorrecto en " + url
             except (SystemExit, requests.exceptions.RequestException) as e:
                 error = str(e)
+            else:
+                # contraseña incorrecta: no reintentar, o OPNsense bloquea esta IP (tabla sshlockout)
+                raise SystemExit("Login incorrecto en " + url)
             time.sleep(3)
         raise SystemExit(error)
 

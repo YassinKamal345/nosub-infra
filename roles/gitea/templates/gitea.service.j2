@@ -1,0 +1,17 @@
+# Gestionado por Ansible (nosub-infra/roles/gitea)
+[Unit]
+Description=Gitea ({{ gitea_nombre }})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ gitea_usuario }}
+Group={{ gitea_usuario }}
+WorkingDirectory={{ gitea_dir_datos }}
+Environment=USER={{ gitea_usuario }} HOME={{ gitea_dir_datos }} GITEA_WORK_DIR={{ gitea_dir_datos }}
+ExecStart=/usr/local/bin/gitea web --config {{ gitea_dir_config }}/app.ini
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

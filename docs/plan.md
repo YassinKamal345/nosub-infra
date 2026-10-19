@@ -13,7 +13,7 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
 - [x] 2.2 Red de laboratorio: bridges y NAT (rol `red_lab`)
 - [x] 2.3 Rol `proxmox_vms`: crea los LXC por la API de Proxmox con un usuario limitado (primero: gitea, 220)
 - [x] 2.4 OPNsense: VLANs 10-60, DMZ, reglas y WireGuard (VPN 10.99.0.0/24, puerto 51820)
-- [ ] 2.5 Gitea + nodo de control Ansible; espejo en GitHub
+- [x] 2.5 Gitea 28.2 en CT 220 (http://10.10.20.10:3000), repositorio subido. Pendiente: espejo en GitHub y mover aquí el nodo de control
 - [ ] 2.6 Planos de red y configs de routers/switches/AP
 
 ## Fase 3 · Servicios de la sede

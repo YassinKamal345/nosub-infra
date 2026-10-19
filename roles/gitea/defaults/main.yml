@@ -1,0 +1,29 @@
+# Versión (binario oficial de dl.gitea.com, comprobado con su sha256)
+gitea_version: "28.2.0"
+gitea_sha256: 15681fc615d56611c274f52803fef4d6d5316b620f93b677dd4b831a74e50b9f
+
+gitea_usuario: git
+gitea_dir_datos: /var/lib/gitea
+gitea_dir_config: /etc/gitea
+
+# Acceso: web en el puerto 3000 y Git por SSH en el 2222 (el 22 es el SSH del sistema, para Ansible)
+gitea_ip: "{{ ansible_host }}"
+gitea_puerto_web: 3000
+gitea_puerto_ssh: 2222
+gitea_nombre: "Gitea de NoSub"
+
+# Base de datos: SQLite de momento; en la fase 3 pasa a PostgreSQL (máquina bbdd)
+gitea_bd: sqlite3
+
+# Administrador (contraseña en el Vault: vault_gitea.admin_clave)
+gitea_admin: yassin
+gitea_admin_correo: "yassin@{{ dominio_interno }}"
+
+# Organización y repositorios que deben existir
+gitea_organizacion: nosub
+gitea_repositorios:
+  - { nombre: nosub-infra, descripcion: "Infraestructura de NoSub como código (Ansible)" }
+
+# Claves SSH que pueden subir código como el administrador
+gitea_claves_ssh:
+  - { titulo: "Nodo de control (Proxmox)", fichero: /root/.ssh/nosub_ansible.pub }

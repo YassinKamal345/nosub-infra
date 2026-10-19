@@ -6,3 +6,9 @@
     - red_lab
     - opnsense
     - proxmox_vms
+
+- name: Gitea (repositorio Git de la sede)
+  hosts: gitea
+  gather_facts: true
+  roles:
+    - gitea

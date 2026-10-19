@@ -1,0 +1,124 @@
+# ---------- 1. Programa y usuario ----------
+- name: Paquetes necesarios
+  ansible.builtin.apt: { name: [git, ca-certificates], update_cache: true, cache_valid_time: 86400 }
+
+- name: Usuario {{ gitea_usuario }} (Gitea no corre como root)
+  ansible.builtin.user:
+    name: "{{ gitea_usuario }}"
+    system: true
+    home: "{{ gitea_dir_datos }}"
+    shell: /bin/bash
+    comment: Gitea
+
+- name: Carpetas de datos
+  ansible.builtin.file: { path: "{{ item }}", state: directory, owner: "{{ gitea_usuario }}", group: "{{ gitea_usuario }}", mode: "0750" }
+  loop: ["{{ gitea_dir_datos }}", "{{ gitea_dir_datos }}/data", "{{ gitea_dir_datos }}/custom", "{{ gitea_dir_datos }}/log"]
+
+- name: Carpeta de configuración (Gitea la puede leer, no cambiar)
+  ansible.builtin.file: { path: "{{ gitea_dir_config }}", state: directory, owner: root, group: "{{ gitea_usuario }}", mode: "0750" }
+
+- name: Descargar Gitea {{ gitea_version }} (comprobando su sha256)
+  ansible.builtin.get_url:
+    url: "https://dl.gitea.com/gitea/{{ gitea_version }}/gitea-{{ gitea_version }}-linux-amd64"
+    dest: "/usr/local/bin/gitea-{{ gitea_version }}"
+    checksum: "sha256:{{ gitea_sha256 }}"
+    mode: "0755"
+  notify: Reiniciar Gitea
+
+- name: Usar esa versión
+  ansible.builtin.file: { src: "/usr/local/bin/gitea-{{ gitea_version }}", dest: /usr/local/bin/gitea, state: link }
+  notify: Reiniciar Gitea
+
+# ---------- 2. Configuración y servicio ----------
+- name: Configuración app.ini (lleva secretos del Vault)
+  ansible.builtin.template: { src: app.ini.j2, dest: "{{ gitea_dir_config }}/app.ini", owner: root, group: "{{ gitea_usuario }}", mode: "0640" }
+  notify: Reiniciar Gitea
+
+- name: Servicio systemd
+  ansible.builtin.template: { src: gitea.service.j2, dest: /etc/systemd/system/gitea.service, mode: "0644" }
+  notify: Reiniciar Gitea
+
+- name: Arrancar Gitea y que arranque solo
+  ansible.builtin.systemd: { name: gitea, state: started, enabled: true, daemon_reload: true }
+
+- name: Aplicar ya los reinicios pendientes
+  ansible.builtin.meta: flush_handlers
+
+- name: Esperar a la web
+  ansible.builtin.uri: { url: "http://127.0.0.1:{{ gitea_puerto_web }}/api/healthz", status_code: 200 }
+  register: salud
+  until: salud.status == 200
+  retries: 30
+  delay: 2
+
+# ---------- 3. Administrador, organización y repositorios ----------
+- name: ¿Existe ya el administrador?
+  ansible.builtin.command: runuser -u {{ gitea_usuario }} -- gitea --config {{ gitea_dir_config }}/app.ini admin user list --admin
+  register: admins
+  changed_when: false
+
+- name: Crear el administrador {{ gitea_admin }}
+  when: gitea_admin not in admins.stdout.split()
+  ansible.builtin.command:
+    argv: [runuser, -u, "{{ gitea_usuario }}", --, gitea, --config, "{{ gitea_dir_config }}/app.ini", admin, user, create,
+           --admin, --username, "{{ gitea_admin }}", --email, "{{ gitea_admin_correo }}",
+           --password, "{{ vault_gitea.admin_clave }}", --must-change-password=false]
+  no_log: true
+  changed_when: true
+
+- name: Dirección de la API
+  ansible.builtin.set_fact:
+    gitea_api: "http://127.0.0.1:{{ gitea_puerto_web }}/api/v1"
+
+- name: Organización {{ gitea_organizacion }}
+  ansible.builtin.uri:
+    url: "{{ gitea_api }}/orgs"
+    method: POST
+    body_format: json
+    body: { username: "{{ gitea_organizacion }}", full_name: "{{ empresa }}", visibility: private }
+    status_code: [201, 422]
+    url_username: "{{ gitea_admin }}"
+    url_password: "{{ vault_gitea.admin_clave }}"
+    force_basic_auth: true
+  register: org
+  changed_when: org.status == 201
+
+- name: Repositorios de la organización
+  ansible.builtin.uri:
+    url: "{{ gitea_api }}/orgs/{{ gitea_organizacion }}/repos"
+    method: POST
+    body_format: json
+    body: { name: "{{ item.nombre }}", description: "{{ item.descripcion }}", private: true, default_branch: main }
+    status_code: [201, 409]
+    url_username: "{{ gitea_admin }}"
+    url_password: "{{ vault_gitea.admin_clave }}"
+    force_basic_auth: true
+  loop: "{{ gitea_repositorios }}"
+  loop_control: { label: "{{ item.nombre }}" }
+  register: repos
+  changed_when: repos.status == 201
+
+- name: Claves SSH que ya tiene el administrador
+  ansible.builtin.uri:
+    url: "{{ gitea_api }}/user/keys"
+    url_username: "{{ gitea_admin }}"
+    url_password: "{{ vault_gitea.admin_clave }}"
+    force_basic_auth: true
+  register: claves_actuales
+
+- name: Añadir las claves SSH que faltan
+  vars:
+    clave: "{{ lookup('ansible.builtin.file', item.fichero) | trim }}"
+  when: (clave.split()[1]) not in (claves_actuales.json | map(attribute='key') | join(' '))
+  ansible.builtin.uri:
+    url: "{{ gitea_api }}/user/keys"
+    method: POST
+    body_format: json
+    body: { title: "{{ item.titulo }}", key: "{{ clave }}" }
+    status_code: 201
+    url_username: "{{ gitea_admin }}"
+    url_password: "{{ vault_gitea.admin_clave }}"
+    force_basic_auth: true
+  loop: "{{ gitea_claves_ssh }}"
+  loop_control: { label: "{{ item.titulo }}" }
+  changed_when: true

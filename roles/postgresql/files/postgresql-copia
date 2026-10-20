@@ -1,0 +1,11 @@
+#!/bin/bash
+# Copia diaria de cada base (formato de pg_dump, se restaura con pg_restore). La lanza postgresql-copia.timer.
+set -euo pipefail
+umask 077
+dir=${1:?carpeta}; dias=${2:?días}
+fecha=$(date +%F)
+for base in $(psql -AtX -c "SELECT datname FROM pg_database WHERE NOT datistemplate AND datname <> 'postgres'"); do
+  pg_dump -Fc -f "$dir/$base-$fecha.dump" "$base"
+done
+pg_dumpall --globals-only -f "$dir/usuarios-$fecha.sql"   # usuarios y permisos
+find "$dir" -type f -mtime +"$dias" -delete

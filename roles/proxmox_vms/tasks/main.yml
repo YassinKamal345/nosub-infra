@@ -104,6 +104,15 @@
   register: r_ping
   until: r_ping.rc == 0
 
+- name: Servidor SSH en los que no lo traen de serie (la plantilla de Rocky viene sin él)
+  ansible.builtin.shell: |
+    pct exec {{ item.vmid }} -- sh -c 'command -v sshd >/dev/null' && exit 0
+    pct exec {{ item.vmid }} -- sh -c 'dnf -y -q install openssh-server python3 && systemctl enable --now sshd' && echo CAMBIO
+  loop: "{{ contenedores }}"
+  loop_control: { label: "{{ item.nombre }}" }
+  register: r_sshd
+  changed_when: "'CAMBIO' in r_sshd.stdout"
+
 - name: Esperar a que respondan por SSH
   ansible.builtin.wait_for: { host: "{{ item.ip }}", port: 22, timeout: 120 }
   loop: "{{ contenedores }}"

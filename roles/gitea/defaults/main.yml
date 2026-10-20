@@ -13,8 +13,9 @@ gitea_puerto_ssh: 2222
 gitea_nombre: "Gitea de NoSub"
 gitea_url: "http://{{ gitea_ip }}:{{ gitea_puerto_web }}/"   # dirección con la que la gente abre Gitea
 
-# Base de datos: SQLite de momento; en la fase 3 pasa a PostgreSQL (máquina bbdd)
-gitea_bd: sqlite3
+# Base de datos: postgres (CT 222 bbdd, base y usuario "gitea", contraseña en vault_postgresql.gitea)
+# o sqlite3 (fichero data/gitea.db; se usó hasta el 2026-10-20 y se conserva como copia)
+gitea_bd: postgres
 
 # Administrador (contraseña en el Vault: vault_gitea.admin_clave)
 gitea_admin: yassin

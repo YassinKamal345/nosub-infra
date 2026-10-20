@@ -1,0 +1,11 @@
+# Generado por Ansible (nosub-infra, rol postgresql). No editar a mano.
+# Quién puede entrar, a qué base y cómo. Lo que no está aquí, se rechaza.
+# TIPO   BASE        USUARIO     ORIGEN              MÉTODO
+local    all         postgres                        peer
+local    all         all                             peer
+host     all         all         127.0.0.1/32        scram-sha-256
+{% for b in postgresql_bases %}
+{% for ip in b.desde %}
+host     {{ '%-11s' | format(b.nombre) }} {{ '%-11s' | format(b.usuario) }} {{ '%-19s' | format(ip ~ '/32') }} scram-sha-256
+{% endfor %}
+{% endfor %}

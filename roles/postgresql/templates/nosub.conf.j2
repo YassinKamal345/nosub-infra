@@ -1,0 +1,9 @@
+# Generado por Ansible (nosub-infra, rol postgresql). No editar a mano.
+listen_addresses = '*'                  # quién puede conectarse lo decide pg_hba.conf
+password_encryption = scram-sha-256
+shared_buffers = {{ postgresql_ram_compartida }}
+log_connections = on
+log_disconnections = on
+log_line_prefix = '%m [%p] %u@%d desde %h '
+log_timezone = '{{ ct_zona_horaria | default("Europe/Madrid") }}'
+timezone = '{{ ct_zona_horaria | default("Europe/Madrid") }}'

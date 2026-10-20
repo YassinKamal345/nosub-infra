@@ -7,7 +7,7 @@ Monta **Gitea** (el GitHub propio de la sede) en el contenedor `gitea` (CT 220, 
 | Web | `http://10.10.20.10:3000` (desde la red de gestión o por Tailscale) |
 | Git por SSH | `ssh://git@10.10.20.10:2222/nosub/<repo>.git` |
 | Administrador | `yassin` (contraseña: `ansible-vault view inventories/sede/group_vars/all/vault.yml` → `vault_gitea.admin_clave`) |
-| Datos | `/var/lib/gitea` (repositorios en `repositorios/`, base de datos SQLite en `data/gitea.db`) |
+| Datos | `/var/lib/gitea` (repositorios en `repositorios/`). Base de datos: PostgreSQL en `bbdd` (10.10.20.12, base `gitea`) |
 | Configuración | `/etc/gitea/app.ini` (la genera Ansible; lleva secretos del Vault) |
 
 **Qué hace:**
@@ -19,7 +19,7 @@ Monta **Gitea** (el GitHub propio de la sede) en el contenedor `gitea` (CT 220, 
 
 **Cambiar de versión:** poner `gitea_version` y su `gitea_sha256` (de `https://dl.gitea.com/gitea/<versión>/`) y lanzar `sede.yml`.
 
-**Base de datos:** SQLite de momento. En la fase 3 se pasa a PostgreSQL (`gitea_bd`).
+**Base de datos:** PostgreSQL (`gitea_bd: postgres`) desde el 2026-10-20. Antes era SQLite; el fichero antiguo `data/gitea.db` se conserva como copia. Así se hizo el cambio: instantánea `antes_postgres` del CT 220 → parar Gitea → `gitea dump --database postgres` → cargar `gitea-db.sql` en la base `gitea` con `SET ROLE gitea` y en una sola transacción → lanzar el rol.
 
 **Contraseña del administrador:** el rol la pone al crearlo; si se cambia en la web, Ansible no la vuelve a tocar.
 

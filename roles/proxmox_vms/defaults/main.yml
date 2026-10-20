@@ -25,7 +25,7 @@ pve_token_fichero: /root/.nosub-pve-token   # el secreto del token vive aquí (0
 pve_plantillas:
   debian: debian-13-standard_13.6-1_amd64.tar.zst
   ubuntu: ubuntu-24.04-standard_24.04-2_amd64.tar.zst
-  rocky: rockylinux-9-default_20240912_amd64.tar.xz
+  rocky: rockylinux-10-default_20251001_amd64.tar.xz
 
 # Valores por defecto de cada contenedor (cada uno puede cambiarlos)
 ct_defecto:

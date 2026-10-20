@@ -1,0 +1,4 @@
+postgresql_dir_datos: /var/lib/pgsql/data
+postgresql_ram_compartida: 128MB        # shared_buffers: ~1/8 de la RAM del contenedor
+postgresql_dir_copias: /var/lib/pgsql/copias
+postgresql_copias_dias: 7               # cuántas copias diarias se guardan

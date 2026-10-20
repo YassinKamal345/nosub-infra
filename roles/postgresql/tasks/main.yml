@@ -1,0 +1,70 @@
+# ---------- 1. Programa ----------
+- name: Paquetes (PostgreSQL de Rocky Linux y lo que Ansible necesita para gestionarlo)
+  ansible.builtin.dnf: { name: [postgresql-server, postgresql-contrib, python3-psycopg2] }
+
+- name: Crear la base de datos inicial (solo la primera vez)
+  ansible.builtin.command: postgresql-setup --initdb
+  args: { creates: "{{ postgresql_dir_datos }}/PG_VERSION" }
+
+# ---------- 2. Configuración ----------
+- name: Leer también los ficheros de conf.d
+  ansible.builtin.lineinfile:
+    path: "{{ postgresql_dir_datos }}/postgresql.conf"
+    regexp: "^#?include_dir ="
+    line: "include_dir = 'conf.d'"
+  notify: Reiniciar PostgreSQL
+
+- name: Carpeta conf.d
+  ansible.builtin.file: { path: "{{ postgresql_dir_datos }}/conf.d", state: directory, owner: postgres, group: postgres, mode: "0700" }
+
+- name: Ajustes de la sede
+  ansible.builtin.template: { src: nosub.conf.j2, dest: "{{ postgresql_dir_datos }}/conf.d/nosub.conf", owner: postgres, group: postgres, mode: "0600" }
+  notify: Reiniciar PostgreSQL
+
+- name: Quién puede conectarse (pg_hba.conf)
+  ansible.builtin.template: { src: pg_hba.conf.j2, dest: "{{ postgresql_dir_datos }}/pg_hba.conf", owner: postgres, group: postgres, mode: "0600" }
+  notify: Recargar PostgreSQL
+
+- name: Arrancar PostgreSQL y que arranque solo
+  ansible.builtin.systemd: { name: postgresql, state: started, enabled: true }
+
+- name: Aplicar ya los cambios pendientes
+  ansible.builtin.meta: flush_handlers
+
+# ---------- 3. Usuarios y bases ----------
+- name: Usuario de cada aplicación
+  become: true
+  become_user: postgres
+  become_method: ansible.builtin.su
+  community.postgresql.postgresql_user:
+    name: "{{ item.usuario }}"
+    password: "{{ vault_postgresql[item.usuario] }}"
+  loop: "{{ postgresql_bases }}"
+  loop_control: { label: "{{ item.usuario }}" }
+  no_log: true
+
+- name: Base de cada aplicación (su dueño es su usuario)
+  become: true
+  become_user: postgres
+  become_method: ansible.builtin.su
+  community.postgresql.postgresql_db:
+    name: "{{ item.nombre }}"
+    owner: "{{ item.usuario }}"
+    encoding: UTF8
+    template: template0
+  loop: "{{ postgresql_bases }}"
+  loop_control: { label: "{{ item.nombre }}" }
+
+# ---------- 4. Copias diarias ----------
+- name: Carpeta de copias
+  ansible.builtin.file: { path: "{{ postgresql_dir_copias }}", state: directory, owner: postgres, group: postgres, mode: "0700" }
+
+- name: Script de copia
+  ansible.builtin.copy: { src: postgresql-copia, dest: /usr/local/bin/postgresql-copia, mode: "0755" }
+
+- name: Servicio y temporizador de la copia
+  ansible.builtin.template: { src: "{{ item }}.j2", dest: "/etc/systemd/system/{{ item }}", mode: "0644" }
+  loop: [postgresql-copia.service, postgresql-copia.timer]
+
+- name: Activar la copia diaria (03:30)
+  ansible.builtin.systemd: { name: postgresql-copia.timer, state: started, enabled: true, daemon_reload: true }

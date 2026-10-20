@@ -1,0 +1,8 @@
+[Unit]
+Description=Copia de las bases de PostgreSQL (nosub-infra)
+After=postgresql.service
+
+[Service]
+Type=oneshot
+User=postgres
+ExecStart=/usr/local/bin/postgresql-copia {{ postgresql_dir_copias }} {{ postgresql_copias_dias }}

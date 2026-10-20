@@ -20,7 +20,15 @@ OFFLINE_MODE = true
 
 [database]
 DB_TYPE = {{ gitea_bd }}
+{% if gitea_bd == 'postgres' %}
+HOST = {{ ip_bbdd }}:5432
+NAME = gitea
+USER = gitea
+PASSWD = `{{ vault_postgresql.gitea }}`
+SSL_MODE = disable
+{% else %}
 PATH = {{ gitea_dir_datos }}/data/gitea.db
+{% endif %}
 
 [repository]
 ROOT = {{ gitea_dir_datos }}/repositorios

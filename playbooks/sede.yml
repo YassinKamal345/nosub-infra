@@ -7,6 +7,12 @@
     - opnsense
     - proxmox_vms
 
+- name: Base de datos (PostgreSQL)
+  hosts: bbdd
+  gather_facts: true
+  roles:
+    - postgresql
+
 - name: Gitea (repositorio Git de la sede)
   hosts: gitea
   gather_facts: true

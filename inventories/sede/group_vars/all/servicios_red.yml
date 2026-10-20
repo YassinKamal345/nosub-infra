@@ -25,3 +25,10 @@ dhcp_vlans:
 
 # Redes que pueden usar el proxy (Squid, puerto 3128). Invitados y DMZ no.
 proxy_vlans: [10, 20, 40, 60]
+
+# ---------- PostgreSQL (CT 222 bbdd) ----------
+ip_bbdd: 10.10.20.12
+# Una base por aplicación, con su propio usuario. Contraseña en el Vault: vault_postgresql.<usuario>.
+# "desde" = las únicas IPs que pueden conectarse a esa base.
+postgresql_bases:
+  - { nombre: gitea, usuario: gitea, desde: [10.10.20.10] }

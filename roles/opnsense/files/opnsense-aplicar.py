@@ -240,6 +240,9 @@ def aplicar(raiz, esp):
     if esp.get("wireguard"):
         aplicar_wireguard(raiz, esp["wireguard"])
 
+    if esp.get("dhcp_relay"):
+        aplicar_relay(raiz, esp["dhcp_relay"])
+
     # DHCP/DNS de fábrica (dnsmasq): fuera; el DHCP será Kea con relay y el DNS Unbound/Bind9
     dm = raiz.find("dnsmasq")
     if dm is not None:
@@ -281,6 +284,21 @@ def aplicar_wireguard(raiz, wg):
     quitar(ifs, wg["interfaz"])
     i = ET.SubElement(ifs, wg["interfaz"])
     rellenar(i, {"enable": "1", "if": "wg0", "descr": "VPN", "spoofmac": None})
+
+
+def aplicar_relay(raiz, rel):
+    """DHCP relay: las peticiones de cada VLAN van al servidor DHCP central (Kea). Todo el apartado es del repositorio."""
+    base = hijo(raiz.find("OPNsense"), "DHCRelay")
+    base.set("version", base.get("version", "1.0.1"))
+    for tag in ("relays", "destinations"):
+        quitar(base, tag)
+    destino = uid("relay-destino", rel["nombre"])
+    # mismo orden que el modelo de OPNsense (primero relays, después destinations)
+    for interfaz in rel["interfaces"]:
+        e = ET.SubElement(base, "relays", uuid=uid("relay", interfaz))
+        rellenar(e, {"enabled": "1", "interface": interfaz, "destination": destino, "agent_info": "0", "carp_depend_on": None})
+    e = ET.SubElement(base, "destinations", uuid=destino)
+    rellenar(e, {"name": rel["nombre"], "server": rel["servidor"]})
 
 
 def normal(texto):

@@ -1,0 +1,8 @@
+# Quién puede preguntar al DNS (y usarlo para resolver nombres de Internet)
+bind_redes_permitidas:
+  - 10.10.0.0/16        # toda la sede
+  - 10.99.0.0/24        # VPN (teletrabajo y cajas)
+  - 100.64.0.0/10       # administradores por Tailscale
+bind_zona: "{{ dominio_interno }}"
+bind_zona_inversa: 10.10.in-addr.arpa     # PTR de toda la sede (10.10.x.x)
+bind_dir_zonas: /etc/bind/zonas

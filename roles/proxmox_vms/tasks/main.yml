@@ -108,3 +108,18 @@
   ansible.builtin.wait_for: { host: "{{ item.ip }}", port: 22, timeout: 120 }
   loop: "{{ contenedores }}"
   loop_control: { label: "{{ item.nombre }} {{ item.ip }}" }
+
+- name: Leer la clave SSH de cada contenedor (desde dentro, no por la red)
+  ansible.builtin.command: pct exec {{ item.vmid }} -- cat /etc/ssh/ssh_host_ed25519_key.pub
+  loop: "{{ contenedores }}"
+  loop_control: { label: "{{ item.nombre }}" }
+  register: claves_host
+  changed_when: false
+
+- name: Apuntarla en known_hosts del nodo de control (así Ansible puede comprobar que habla con quien toca)
+  ansible.builtin.known_hosts:
+    path: /root/.ssh/known_hosts
+    name: "{{ item.item.ip }}"
+    key: "{{ item.item.ip }} {{ item.stdout.split()[:2] | join(' ') }}"
+  loop: "{{ claves_host.results }}"
+  loop_control: { label: "{{ item.item.nombre }}" }

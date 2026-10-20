@@ -1,0 +1,2 @@
+- name: Recargar Bind9
+  ansible.builtin.systemd: { name: named, state: reloaded }

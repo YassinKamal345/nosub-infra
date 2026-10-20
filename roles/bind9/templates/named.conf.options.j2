@@ -1,0 +1,22 @@
+// Generado por Ansible (nosub-infra, rol bind9)
+acl sede {
+{% for red in bind_redes_permitidas %}
+    {{ red }};
+{% endfor %}
+    localhost;
+};
+
+options {
+    directory "/var/cache/bind";
+    listen-on { any; };
+    listen-on-v6 { none; };
+
+    // Solo la sede pregunta; resuelve Internet por su cuenta (desde los servidores raíz) y comprueba DNSSEC
+    allow-query { sede; };
+    recursion yes;
+    allow-recursion { sede; };
+    dnssec-validation auto;
+
+    allow-transfer { none; };
+    version none;
+};

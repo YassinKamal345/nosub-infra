@@ -77,7 +77,9 @@ Los routers no están en gestión: están fuera del firewall. Se administran por
 - **Salida a Internet de la sede:** VLAN → OPNsense (NAT) → R1 (NAT otra vez) → red del centro. R1 no necesita conocer las redes 10.10.x.x.
 - **Rutas entre routers (OSPF, área 0):** R1 anuncia a R2 y R3 la ruta por defecto y la red de la WAN de la sede (172.31.255.0/30). Las redes de los clientes no se anuncian: están detrás de NAT, como en una casa de verdad.
 - **Una caja en casa del cliente:** recibe IP del router del cliente (R2 o R3, por DHCP) y abre el túnel WireGuard hacia 172.31.255.2:51820. En la sede de verdad sería la IP pública.
-- **DHCP de la sede:** lo da OPNsense hasta que exista Kea (fase 3). Entonces OPNsense hará de *relay* en cada VLAN. La propuesta hablaba de `ip helper-address` en los routers; no hace falta, porque quien enruta las VLANs es OPNsense, no un router.
+- **DHCP de la sede:** lo da Kea (CT `red-int`, 10.10.20.11). OPNsense hace de *relay* en gestión, empleados, invitados y lab cajas, y reparte de la .100 a la .199. Servidores y DMZ llevan IPs fijas.
+- **DNS de la sede:** Bind9 en `red-int` (zona `nosub.lan`). Los invitados usan el DNS del firewall, porque no pueden llegar a los servidores.
+- **Proxy:** Squid en `proxy.nosub.lan:3128` para gestión, servidores, empleados y lab cajas. La propuesta hablaba de `ip helper-address` en los routers; no hace falta, porque quien enruta las VLANs es OPNsense, no un router.
 
 ## 3. Plano físico
 

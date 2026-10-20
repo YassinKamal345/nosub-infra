@@ -1,0 +1,34 @@
+# Generado por Ansible (nosub-infra, rol squid). No editar a mano.
+http_port {{ squid_puerto }}
+visible_hostname proxy.{{ dominio_interno }}
+
+# ---------- Quién puede usarlo ----------
+{% for v in proxy_vlans %}
+acl sede src {{ (vlans | selectattr("id", "eq", v) | first).red }}
+{% endfor %}
+acl SSL_ports port 443
+acl Safe_ports port 80 443 21 1025-65535
+
+# ---------- Reglas (en orden; la primera que encaja, manda) ----------
+http_access deny !Safe_ports
+http_access deny CONNECT !SSL_ports
+http_access allow localhost manager
+http_access deny manager
+http_access deny to_localhost
+http_access deny to_linklocal
+http_access allow sede
+http_access allow localhost
+http_access deny all
+
+# ---------- Caché ----------
+cache_mem {{ squid_cache_ram_mb }} MB
+cache_dir ufs /var/spool/squid {{ squid_cache_disco_mb }} 16 256
+maximum_object_size {{ squid_objeto_max_mb }} MB
+coredump_dir /var/spool/squid
+refresh_pattern ^ftp:             1440  20%  10080
+refresh_pattern -i (/cgi-bin/|\?)    0   0%      0
+refresh_pattern \.(deb|udeb)$   129600 100% 129600
+refresh_pattern .                    0  20%   4320
+
+# ---------- DNS: el Bind9 de esta misma máquina ----------
+dns_nameservers 127.0.0.1

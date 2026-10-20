@@ -1,0 +1,8 @@
+$TTL 3600
+@   IN SOA  red-int.{{ bind_zona }}. admin.{{ bind_zona }}. (
+            @SERIAL@ ; serie (la pone Ansible cuando la zona cambia)
+            3600     ; refresco
+            900      ; reintento
+            604800   ; caducidad
+            300 )    ; TTL de las respuestas negativas
+    IN NS   red-int.{{ bind_zona }}.

@@ -1,0 +1,9 @@
+- name: Paquete
+  ansible.builtin.apt: { name: squid, update_cache: true, cache_valid_time: 86400 }
+
+- name: Configuración (Squid la comprueba antes de usarla)
+  ansible.builtin.template: { src: squid.conf.j2, dest: /etc/squid/squid.conf, mode: "0644", validate: "squid -k parse -f %s" }
+  notify: Recargar Squid
+
+- name: Arrancar Squid y que arranque solo
+  ansible.builtin.systemd: { name: squid, state: started, enabled: true }

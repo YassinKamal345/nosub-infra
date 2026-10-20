@@ -1,0 +1,4 @@
+squid_puerto: 3128
+squid_cache_ram_mb: 64
+squid_cache_disco_mb: 1024
+squid_objeto_max_mb: 256        # suficiente para paquetes de apt

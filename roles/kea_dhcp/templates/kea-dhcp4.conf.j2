@@ -1,0 +1,39 @@
+// Generado por Ansible (nosub-infra, rol kea_dhcp). No editar a mano.
+// Las peticiones llegan por el relay de OPNsense: Kea elige la red por la IP del relay (10.10.X.1).
+{
+  "Dhcp4": {
+    "interfaces-config": {
+      "interfaces": [ "{{ kea_interfaz }}" ],
+      "dhcp-socket-type": "udp"
+    },
+    "lease-database": {
+      "type": "memfile",
+      "persist": true,
+      "name": "{{ kea_fichero_concesiones }}",
+      "lfc-interval": 3600
+    },
+    "option-data": [
+      { "name": "domain-name", "data": "{{ dominio_interno }}" },
+      { "name": "domain-search", "data": "{{ dominio_interno }}" }
+    ],
+    "subnet4": [
+{% for d in dhcp_vlans %}
+{% set red = (vlans | selectattr('id', 'eq', d.vlan) | first).red %}
+{% set puerta = red | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') %}
+      {
+        "id": {{ d.vlan }},
+        "subnet": "{{ red }}",
+        "pools": [ { "pool": "{{ red | ansible.utils.ipaddr(kea_rango[0]) | ansible.utils.ipaddr('address') }} - {{ red | ansible.utils.ipaddr(kea_rango[1]) | ansible.utils.ipaddr('address') }}" } ],
+        "valid-lifetime": {{ d.horas * 3600 }},
+        "option-data": [
+          { "name": "routers", "data": "{{ puerta }}" },
+          { "name": "domain-name-servers", "data": "{{ ip_red_int if d.dns == 'red-int' else puerta }}" }
+        ]
+      }{{ ',' if not loop.last }}
+{% endfor %}
+    ],
+    "loggers": [
+      { "name": "kea-dhcp4", "output-options": [ { "output": "syslog" } ], "severity": "INFO" }
+    ]
+  }
+}

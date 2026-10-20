@@ -17,6 +17,7 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
 - [x] 2.6 Planos de red (`docs/red.md`) y configs de routers/switches/AP generadas con Ansible (`playbooks/red_fisica.yml`). Pendiente: aplicarlas en el centro
 
 ## Fase 3 · Servicios de la sede
-- [ ] Bind9 + Kea DHCP + Squid · PostgreSQL (Rocky) · Prometheus + Grafana (panel ADMIN) + Uptime Kuma (sin Zabbix: decidido 2026-10-16 para ahorrar RAM)
+- [x] Bind9 + Kea DHCP + Squid en CT 221 `red-int` (10.10.20.11); relay DHCP en OPNsense; prueba `scripts/probar-dhcp.sh`
+- [ ] PostgreSQL (Rocky) · Prometheus + Grafana (panel ADMIN) + Uptime Kuma (sin Zabbix: decidido 2026-10-16 para ahorrar RAM)
 - [ ] Intranet y extranet con PostgreSQL · Traefik con HTTPS en la DMZ
 - [ ] Prueba: borrar la sede y reconstruirla con `sede.yml`

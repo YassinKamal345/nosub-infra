@@ -12,3 +12,11 @@
   gather_facts: true
   roles:
     - gitea
+
+- name: Red interna (DNS, DHCP y proxy)
+  hosts: red-int
+  gather_facts: true
+  roles:
+    - bind9
+    - kea_dhcp
+    - squid

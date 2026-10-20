@@ -1,0 +1,27 @@
+# DNS, DHCP y proxy de la sede (CT 221 red-int). Ver roles bind9, kea_dhcp y squid.
+ip_red_int: 10.10.20.11
+
+# Nombres fijos de la zona nosub.lan. Los contenedores (lista "contenedores") se añaden solos.
+dns_nombres:
+  - { nombre: fw,    ip: 10.10.10.1 }    # OPNsense
+  - { nombre: prx,   ip: 10.10.10.2 }    # Proxmox
+  - { nombre: sw1,   ip: "{{ switches.SW1.ip_gestion }}" }
+  - { nombre: sw2,   ip: "{{ switches.SW2.ip_gestion }}" }
+  - { nombre: ap,    ip: "{{ punto_acceso.ip_gestion }}" }
+# Otros nombres para la misma máquina (alias → nombre real)
+dns_alias:
+  - { nombre: dns,   destino: red-int }
+  - { nombre: dhcp,  destino: red-int }
+  - { nombre: proxy, destino: red-int }
+  - { nombre: git,   destino: gitea }
+
+# VLANs con DHCP (las de servidores y DMZ usan IPs fijas). Rango: .100 a .199.
+# dns: "red-int" = Bind9; "firewall" = el DNS de OPNsense (los invitados no pueden llegar a los servidores).
+dhcp_vlans:
+  - { vlan: 10, dns: red-int,  horas: 8 }
+  - { vlan: 40, dns: red-int,  horas: 8 }
+  - { vlan: 50, dns: firewall, horas: 1 }
+  - { vlan: 60, dns: red-int,  horas: 8 }
+
+# Redes que pueden usar el proxy (Squid, puerto 3128). Invitados y DMZ no.
+proxy_vlans: [10, 20, 40, 60]

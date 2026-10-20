@@ -1,0 +1,38 @@
+- name: Paquetes
+  ansible.builtin.apt: { name: [bind9, bind9-dnsutils], update_cache: true, cache_valid_time: 86400 }
+
+- name: Carpeta de las zonas
+  ansible.builtin.file: { path: "{{ bind_dir_zonas }}", state: directory, owner: root, group: bind, mode: "0755" }
+
+- name: Opciones y zonas
+  ansible.builtin.template: { src: "{{ item }}.j2", dest: "/etc/bind/{{ item }}", owner: root, group: bind, mode: "0644", validate: "named-checkconf %s" }
+  loop: [named.conf.options, named.conf.local]
+  notify: Recargar Bind9
+
+# Cada zona se escribe primero sin número de serie ("cuerpo"). Solo si el cuerpo cambia se le pone
+# una serie nueva: así Ansible no cambia nada cuando no hay nada que cambiar.
+- name: Contenido de las zonas
+  ansible.builtin.template: { src: "{{ item.plantilla }}", dest: "{{ bind_dir_zonas }}/{{ item.zona }}.cuerpo", mode: "0644" }
+  loop:
+    - { zona: "{{ bind_zona }}", plantilla: zona.j2 }
+    - { zona: "{{ bind_zona_inversa }}", plantilla: zona_inversa.j2 }
+  loop_control: { label: "{{ item.zona }}" }
+  register: cuerpos
+
+- name: Zonas con su número de serie (comprobadas antes de usarlas)
+  ansible.builtin.shell: |
+    set -e
+    d={{ bind_dir_zonas }}; z={{ item.item.zona }}
+    [ -f $d/db.$z ] && [ "{{ item.changed }}" = False ] && exit 0
+    sed "s/@SERIAL@/$(date +%s)/" $d/$z.cuerpo > $d/db.$z.nuevo
+    named-checkzone $z $d/db.$z.nuevo
+    mv $d/db.$z.nuevo $d/db.$z
+    echo CAMBIO
+  loop: "{{ cuerpos.results }}"
+  loop_control: { label: "{{ item.item.zona }}" }
+  register: r_zonas
+  changed_when: "'CAMBIO' in r_zonas.stdout"
+  notify: Recargar Bind9
+
+- name: Arrancar Bind9 y que arranque solo
+  ansible.builtin.systemd: { name: named, state: started, enabled: true }

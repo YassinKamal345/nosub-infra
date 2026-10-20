@@ -1,0 +1,2 @@
+- name: Recargar Squid
+  ansible.builtin.systemd: { name: squid, state: reloaded }

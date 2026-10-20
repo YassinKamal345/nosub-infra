@@ -1,0 +1,17 @@
+; Zona {{ bind_zona }}. Generada por Ansible (nosub-infra, rol bind9): no editar a mano.
+{% include '_soa.j2' %}
+
+; Equipos fijos
+{% for n in dns_nombres %}
+{{ '%-12s' | format(n.nombre) }} IN A     {{ n.ip }}
+{% endfor %}
+
+; Contenedores (lista "contenedores" del inventario)
+{% for c in contenedores %}
+{{ '%-12s' | format(c.nombre) }} IN A     {{ c.ip }}
+{% endfor %}
+
+; Alias
+{% for a in dns_alias %}
+{{ '%-12s' | format(a.nombre) }} IN CNAME {{ a.destino }}
+{% endfor %}

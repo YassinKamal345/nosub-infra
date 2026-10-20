@@ -1,0 +1,10 @@
+// Generado por Ansible (nosub-infra, rol bind9): zonas de la sede
+zone "{{ bind_zona }}" {
+    type primary;
+    file "{{ bind_dir_zonas }}/db.{{ bind_zona }}";
+};
+
+zone "{{ bind_zona_inversa }}" {
+    type primary;
+    file "{{ bind_dir_zonas }}/db.{{ bind_zona_inversa }}";
+};

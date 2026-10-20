@@ -48,6 +48,7 @@ opnsense_reglas:
   # ADMINISTRADORES por Tailscale (entran por gestión con su IP 100.x): como la red de gestión, a toda la sede
   - { interface: lan, source_net: admins_tailscale, destination_net: redes_privadas, descripcion: "Administradores por Tailscale" }
   # SERVIDORES: a todo menos a la red de gestión
+  - { interface: opt1, protocol: UDP, source_net: "{{ opnsense_dhcp_servidor }}", destination_net: "(self)", destination_port: "67", descripcion: "Kea: respuestas al relay DHCP" }
   - { interface: opt1, source_net: opt1, destination_net: lan, destination_not: "1", descripcion: "Servidores: todo menos gestion" }
   # DMZ: solo Internet (las excepciones hacia servidores se añaden con cada servicio)
   - { interface: opt2, source_net: opt2, destination_net: redes_privadas, destination_not: "1", descripcion: "DMZ: solo Internet" }
@@ -64,6 +65,10 @@ opnsense_reglas:
   - { interface: wan, protocol: UDP, destination_net: wanip, destination_port: "{{ opnsense_wg_puerto }}", descripcion: "WireGuard desde Internet" }
   - { interface: opt6, source_net: opt6, destination_net: opt1, descripcion: "VPN: a servidores" }
   - { interface: opt6, source_net: opt6, destination_net: opt2, descripcion: "VPN: a la DMZ" }
+
+# DHCP: OPNsense no reparte IPs; pasa las peticiones de estas VLANs (relay) a Kea, en el CT red-int.
+opnsense_dhcp_servidor: "{{ ip_red_int }}"
+opnsense_dhcp_vlans: "{{ dhcp_vlans | map(attribute='vlan') | list }}"
 
 # WireGuard (VPN de teletrabajo; en la fase 4, también las cajas). Claves privadas en el Vault (vault_wg_privadas).
 opnsense_wg_puerto: 51820

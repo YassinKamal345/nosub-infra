@@ -1,0 +1,15 @@
+- name: Paquete
+  ansible.builtin.apt: { name: kea-dhcp4-server, update_cache: true, cache_valid_time: 86400 }
+
+- name: Configuración (Kea la comprueba antes de usarla)
+  ansible.builtin.template:
+    src: kea-dhcp4.conf.j2
+    dest: /etc/kea/kea-dhcp4.conf
+    owner: root
+    group: _kea
+    mode: "0640"
+    validate: kea-dhcp4 -t %s
+  notify: Reiniciar Kea
+
+- name: Arrancar Kea y que arranque solo
+  ansible.builtin.systemd: { name: kea-dhcp4-server, state: started, enabled: true }

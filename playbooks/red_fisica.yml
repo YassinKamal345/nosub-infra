@@ -1,0 +1,8 @@
+# Genera las configuraciones de R1-R3, SW1-SW2 y el AP en network/generado/ (no toca ningún equipo).
+# Cómo aplicarlas: network/README.md.
+- name: Configuraciones de la red física
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - red_fisica

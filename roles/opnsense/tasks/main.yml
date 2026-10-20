@@ -26,7 +26,7 @@
     set -e
     qm create {{ opnsense_vmid }} --name opnsense --ostype other --machine q35 --cpu host \
       --cores {{ opnsense_nucleos }} --memory {{ opnsense_ram }} --balloon 0 \
-      --net0 virtio,bridge={{ opnsense_puente_troncal }} --net1 virtio,bridge={{ opnsense_puente_wan }} \
+      --net0 virtio,bridge={{ opnsense_puente_troncal }} --net1 virtio,bridge={{ opnsense_puente_wan }}{{ ",tag=" ~ opnsense_wan_vlan if opnsense_wan_vlan else "" }} \
       --scsihw virtio-scsi-single --serial0 socket --vga std --onboot 1 --startup order=1 \
       --tags sede,firewall --description "Firewall de la sede NoSub (OPNsense {{ opnsense_version }}). Gestionado por Ansible: nosub-infra/roles/opnsense"
     qm importdisk {{ opnsense_vmid }} {{ opnsense_dir_imagen }}/OPNsense-{{ opnsense_version }}-nano-amd64.img {{ opnsense_almacen }} --format raw

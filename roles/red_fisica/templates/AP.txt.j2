@@ -1,0 +1,19 @@
+AP: punto de acceso WiFi de la sede ({{ empresa }})
+Generado por Ansible (nosub-infra, rol red_fisica). Se configura desde su web; estos son los valores.
+
+Gestión
+  IP:              {{ punto_acceso.ip_gestion }} / {{ (vlans | selectattr('id', 'equalto', vlan_gestion) | first).red | ansible.utils.ipaddr('netmask') }}
+  Puerta y DNS:    {{ ip_gestion_opnsense }}
+  Usuario:         admin / {{ vault_red_fisica.admin }}
+  Conectado a:     SW2 Fa0/1 (troncal: gestión sin etiqueta; WiFi con etiqueta)
+
+Redes WiFi
+{% for w in punto_acceso.redes_wifi %}
+  {{ w.ssid }}
+    VLAN:          {{ w.vlan }}
+    Seguridad:     {{ w.seguridad }}
+    Clave:         {{ vault_red_fisica['wifi_' ~ w.clave] }}
+    Aislar clientes: {{ 'sí (los invitados no se ven entre ellos)' if w.aislar_clientes else 'no' }}
+{% endfor %}
+
+Además: cambiar la contraseña de fábrica, actualizar el firmware y desactivar WPS.

@@ -1,0 +1,27 @@
+# Genera la configuración de cada equipo de red en network/generado/ (fuera de Git: lleva contraseñas).
+- name: Carpeta de salida (solo la puede leer root)
+  ansible.builtin.file: { path: "{{ red_fisica_salida }}", state: directory, mode: "0700" }
+
+- name: Routers
+  vars:
+    equipo: "{{ item.key }}"
+    r: "{{ item.value }}"
+    ssh_permitido: "{{ ssh_permitido_routers }}"
+  ansible.builtin.template:
+    src: "{{ 'R1.cfg.j2' if item.key == 'R1' else 'cliente.cfg.j2' }}"
+    dest: "{{ red_fisica_salida }}/{{ item.key }}.cfg"
+    mode: "0600"
+  loop: "{{ routers | dict2items }}"
+  loop_control: { label: "{{ item.key }}" }
+
+- name: Switches
+  vars:
+    equipo: "{{ item.key }}"
+    s: "{{ item.value }}"
+    ssh_permitido: "{{ ssh_permitido_switches }}"
+  ansible.builtin.template: { src: switch.cfg.j2, dest: "{{ red_fisica_salida }}/{{ item.key }}.cfg", mode: "0600" }
+  loop: "{{ switches | dict2items }}"
+  loop_control: { label: "{{ item.key }}" }
+
+- name: Punto de acceso
+  ansible.builtin.template: { src: AP.txt.j2, dest: "{{ red_fisica_salida }}/AP.txt", mode: "0600" }

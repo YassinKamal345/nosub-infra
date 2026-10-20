@@ -9,6 +9,7 @@ opnsense_ram: 1536
 opnsense_disco: 8G
 opnsense_puente_troncal: vmbr1   # vtnet0: VLANs de la sede
 opnsense_puente_wan: vmbr2       # vtnet1: salida a Internet
+opnsense_wan_vlan: ""            # en el centro: puente vmbr1 y VLAN 99 (enlace con R1, ver docs/red.md)
 
 # Acceso: gestión (VLAN 10) una vez configurado; de fábrica (192.168.1.1, sin VLAN) solo la primera vez
 opnsense_ip_gestion: 10.10.10.1

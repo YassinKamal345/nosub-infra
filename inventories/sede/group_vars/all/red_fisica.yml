@@ -1,0 +1,69 @@
+# Red física de la sede (material del centro: R1-R3, SW1-SW2 y AP). Ver docs/red.md.
+# Con estos datos, playbooks/red_fisica.yml genera la configuración de cada equipo en network/generado/.
+# Equipos supuestos: routers Cisco con 2 puertos (Gi0/0, Gi0/1) y switches Cisco 2960 de 24 puertos.
+# Si un switch es un 3560/3750, ponerle "encapsulacion_troncal: true" (allí hay que elegir dot1q a mano).
+# Si son otros, solo cambian los nombres de los puertos aquí.
+
+# VLANs que están FUERA del firewall. Solo pasan por SW1 (entre Proxmox y los routers); nunca llegan a SW2.
+#   99  = enlace entre OPNsense (WAN) y R1. En el laboratorio, este papel lo hace prx (vmbr2).
+#   100 = "Internet" simulado entre los tres routers (OSPF).
+vlan_enlace_r1: { id: 99, nombre: enlace_r1, red: 172.31.255.0/30 }
+vlan_proveedor: { id: 100, nombre: proveedor, red: 10.255.0.0/29 }
+vlan_aparcado: 999      # VLAN vacía: puertos sin uso y VLAN nativa de los troncales (nunca la 1)
+
+# Desde dónde se puede entrar por SSH a cada tipo de equipo
+ssh_permitido_switches: [10.10.10.0/24, 100.64.0.0/10]   # gestión y administradores por Tailscale
+ssh_permitido_routers: [172.31.255.2]                    # solo desde la sede (sale por la WAN de OPNsense)
+
+routers:
+  R1:
+    papel: "Borde de la sede: salida a Internet del centro y enlace con los clientes"
+    loopback: 10.255.255.1
+    puerto_wan: Gi0/0               # a la red del centro (IP por DHCP)
+    puerto_troncal: Gi0/1           # a SW1 (VLANs 99 y 100)
+    ip_enlace: 172.31.255.1/30      # puerta de enlace de OPNsense
+    ip_proveedor: 10.255.0.1/29
+  R2:
+    papel: "Casa del cliente A (red doméstica con una caja)"
+    loopback: 10.255.255.2
+    puerto_proveedor: Gi0/0         # a SW1 (VLAN 100)
+    puerto_lan: Gi0/1               # red del cliente
+    ip_proveedor: 10.255.0.2/29
+    lan: 192.168.10.0/24
+  R3:
+    papel: "Oficina del cliente B (segunda ubicación)"
+    loopback: 10.255.255.3
+    puerto_proveedor: Gi0/0
+    puerto_lan: Gi0/1
+    ip_proveedor: 10.255.0.3/29
+    lan: 192.168.20.0/24
+
+switches:
+  SW1:
+    papel: "Núcleo: troncal hacia Proxmox, routers y SW2"
+    ip_gestion: 10.10.10.3
+    raiz_stp: true                  # raíz del árbol de expansión de todas las VLANs
+    puertos:
+      - { nombre: Gi0/1, modo: troncal, vlans: [10, 20, 30, 40, 50, 60, 99], descripcion: "prx (Proxmox): troncal de la sede" }
+      - { nombre: Gi0/2, modo: troncal, vlans: [10, 40, 50], descripcion: "SW2 (acceso)" }
+      - { nombre: Fa0/1, modo: troncal, vlans: [99, 100], descripcion: "R1 Gi0/1" }
+      - { nombre: Fa0/2, modo: acceso, vlan: 100, descripcion: "R2 Gi0/0" }
+      - { nombre: Fa0/3, modo: acceso, vlan: 100, descripcion: "R3 Gi0/0" }
+      - { nombre: "Fa0/4 - 5", modo: acceso, vlan: 10, descripcion: "Puesto de administración" }
+      - { nombre: "Fa0/6 - 8", modo: acceso, vlan: 60, descripcion: "Laboratorio de cajas" }
+    apagados: "Fa0/9 - 24"
+  SW2:
+    papel: "Acceso: puestos de empleados y punto de acceso WiFi"
+    ip_gestion: 10.10.10.4
+    raiz_stp: false
+    puertos:
+      - { nombre: Gi0/1, modo: troncal, vlans: [10, 40, 50], descripcion: "SW1 (núcleo)" }
+      - { nombre: Fa0/1, modo: troncal, vlans: [10, 40, 50], nativa: 10, descripcion: "AP (gestión sin etiqueta)" }
+      - { nombre: "Fa0/2 - 20", modo: acceso, vlan: 40, descripcion: "Puesto de empleado" }
+    apagados: "Fa0/21 - 24"
+
+punto_acceso:
+  ip_gestion: 10.10.10.5
+  redes_wifi:
+    - { ssid: NoSub-Empleados, vlan: 40, seguridad: "WPA2/WPA3-Personal", aislar_clientes: false, clave: empleados }
+    - { ssid: NoSub-Invitados, vlan: 50, seguridad: "WPA2-Personal", aislar_clientes: true, clave: invitados }

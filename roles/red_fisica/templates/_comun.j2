@@ -1,0 +1,11 @@
+! ---------- Común: nombre, usuarios y acceso por SSH ----------
+hostname {{ equipo }}
+no ip domain-lookup
+ip domain-name {{ dominio_interno }}
+service password-encryption
+enable secret {{ vault_red_fisica.enable }}
+username admin privilege 15 secret {{ vault_red_fisica.admin }}
+ip ssh version 2
+banner motd ^
+{{ equipo }} - {{ empresa }}. Solo personal autorizado.
+^

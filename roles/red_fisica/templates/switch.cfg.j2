@@ -1,0 +1,63 @@
+! {{ equipo }}: {{ s.papel }}
+! Generado por Ansible (nosub-infra, rol red_fisica). No editar a mano: cambiar los datos y volver a generar.
+{% include '_comun.j2' +%}
+!
+! ---------- VLANs ----------
+{% set usadas = s.puertos | map(attribute='vlans', default=[]) | flatten + s.puertos | selectattr('vlan', 'defined') | map(attribute='vlan') | list %}
+{% for v in vlans + [vlan_enlace_r1, vlan_proveedor] if v.id in usadas %}
+vlan {{ v.id }}
+ name {{ v.nombre | upper }}
+{% endfor %}
+vlan {{ vlan_aparcado }}
+ name APARCADO
+!
+! ---------- Árbol de expansión (evita bucles) ----------
+spanning-tree mode rapid-pvst
+{% if s.raiz_stp %}
+spanning-tree vlan 1-4094 priority 4096
+{% endif %}
+!
+! ---------- Puertos en uso ----------
+{% for p in s.puertos %}
+interface {{ 'range ' if ' - ' in p.nombre }}{{ p.nombre }}
+ description {{ p.descripcion }}
+{% if p.modo == 'troncal' %}
+{% if s.encapsulacion_troncal | default(false) %}
+ switchport trunk encapsulation dot1q
+{% endif %}
+ switchport mode trunk
+ switchport nonegotiate
+ switchport trunk native vlan {{ p.nativa | default(vlan_aparcado) }}
+ switchport trunk allowed vlan {{ (p.vlans + [p.nativa | default(vlan_aparcado)]) | unique | sort | join(',') }}
+{% else %}
+ switchport mode access
+ switchport access vlan {{ p.vlan }}
+ switchport nonegotiate
+ spanning-tree portfast
+ spanning-tree bpduguard enable
+{% endif %}
+ no shutdown
+{% endfor %}
+!
+! ---------- Puertos sin uso: apagados y en la VLAN vacía ----------
+interface range {{ s.apagados }}
+ description Sin uso
+ switchport mode access
+ switchport access vlan {{ vlan_aparcado }}
+ shutdown
+!
+! ---------- Gestión (VLAN {{ vlan_gestion }}) ----------
+interface Vlan1
+ no ip address
+ shutdown
+interface Vlan{{ vlan_gestion }}
+ description Gestion
+ ip address {{ s.ip_gestion }} {{ (vlans | selectattr('id', 'equalto', vlan_gestion) | first).red | ansible.utils.ipaddr('netmask') }}
+ no shutdown
+ip default-gateway {{ ip_gestion_opnsense }}
+ip name-server {{ ip_gestion_opnsense }}
+ntp server {{ ip_gestion_opnsense }}
+!
+{% include '_vty.j2' +%}
+!
+end

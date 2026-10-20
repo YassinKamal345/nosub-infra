@@ -1,0 +1,4 @@
+red_fisica_salida: "{{ playbook_dir }}/../network/generado"
+vlan_gestion: 10                    # igual que en red_lab
+ip_gestion_opnsense: 10.10.10.1     # puerta de enlace, DNS y hora de los switches y el AP
+dns_clientes: [9.9.9.9, 1.1.1.1]    # DNS que reparten R2 y R3 a sus clientes

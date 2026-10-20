@@ -1,0 +1,46 @@
+! {{ equipo }}: {{ r.papel }}
+! Generado por Ansible (nosub-infra, rol red_fisica). No editar a mano: cambiar los datos y volver a generar.
+! Hace de router doméstico: NAT y DHCP para su red, y OSPF hacia el "Internet" simulado.
+{% include '_comun.j2' +%}
+!
+! ---------- "Internet" (VLAN {{ vlan_proveedor.id }} en SW1) ----------
+interface {{ r.puerto_proveedor }}
+ description Internet simulado (R1 y los otros clientes)
+ ip address {{ r.ip_proveedor | ansible.utils.ipaddr('address') }} {{ r.ip_proveedor | ansible.utils.ipaddr('netmask') }}
+ ip nat outside
+ no shutdown
+!
+! ---------- Red del cliente ----------
+interface {{ r.puerto_lan }}
+ description Red del cliente (aquí se enchufa la caja)
+ ip address {{ r.lan | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }} {{ r.lan | ansible.utils.ipaddr('netmask') }}
+ ip nat inside
+ no shutdown
+!
+interface Loopback0
+ ip address {{ r.loopback }} 255.255.255.255
+!
+! ---------- DHCP de la red del cliente (como un router de casa) ----------
+ip dhcp excluded-address {{ r.lan | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }} {{ r.lan | ansible.utils.ipaddr('9') | ansible.utils.ipaddr('address') }}
+ip dhcp pool CLIENTE
+ network {{ r.lan | ansible.utils.ipaddr('network') }} {{ r.lan | ansible.utils.ipaddr('netmask') }}
+ default-router {{ r.lan | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}
+ dns-server {{ dns_clientes | join(' ') }}
+!
+! ---------- NAT: la red del cliente sale con la IP del router ----------
+ip access-list standard NAT-SALIDA
+ permit {{ r.lan | ansible.utils.ipaddr('network') }} {{ r.lan | ansible.utils.ipaddr('hostmask') }}
+ip nat inside source list NAT-SALIDA interface {{ r.puerto_proveedor }} overload
+!
+! ---------- OSPF: aprende de R1 la ruta por defecto y la WAN de la sede ----------
+! La red del cliente no se anuncia: está detrás de NAT, como en una casa de verdad.
+router ospf 1
+ router-id {{ r.loopback }}
+ passive-interface default
+ no passive-interface {{ r.puerto_proveedor }}
+ network {{ r.loopback }} 0.0.0.0 area 0
+ network {{ vlan_proveedor.red | ansible.utils.ipaddr('network') }} {{ vlan_proveedor.red | ansible.utils.ipaddr('hostmask') }} area 0
+!
+{% include '_vty.j2' +%}
+!
+end

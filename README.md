@@ -24,6 +24,7 @@ nada se configura a mano. Con un solo comando se reconstruye la sede o se prepar
 ```bash
 ansible-playbook playbooks/sede.yml              # monta o actualiza toda la sede
 ansible-playbook playbooks/sede.yml --check      # simula: dice qué cambiaría, sin tocar nada
+ansible-playbook playbooks/red_fisica.yml        # genera las configs de routers, switches y AP (network/generado/)
 ansible-vault edit inventories/sede/group_vars/all/vault.yml   # editar secretos
 ```
 

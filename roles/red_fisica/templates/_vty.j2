@@ -1,0 +1,14 @@
+! ---------- Quién puede entrar por SSH ----------
+ip access-list standard SSH-PERMITIDO
+{% for red in ssh_permitido %}
+ permit {{ red | ansible.utils.ipaddr('network') }} {{ red | ansible.utils.ipaddr('hostmask') }}
+{% endfor %}
+ deny any log
+line con 0
+ login local
+ logging synchronous
+line vty 0 15
+ access-class SSH-PERMITIDO in
+ transport input ssh
+ login local
+ exec-timeout 15 0

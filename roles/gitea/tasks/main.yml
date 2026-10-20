@@ -122,3 +122,38 @@
   loop: "{{ gitea_claves_ssh }}"
   loop_control: { label: "{{ item.titulo }}" }
   changed_when: true
+
+# ---------- 4. Copias espejo en GitHub ----------
+- name: Copias espejo que ya tiene cada repositorio
+  when: vault_gitea.github_token is defined
+  ansible.builtin.uri:
+    url: "{{ gitea_api }}/repos/{{ gitea_organizacion }}/{{ item.repo }}/push_mirrors"
+    url_username: "{{ gitea_admin }}"
+    url_password: "{{ vault_gitea.admin_clave }}"
+    force_basic_auth: true
+  loop: "{{ gitea_espejos }}"
+  loop_control: { label: "{{ item.repo }}" }
+  register: espejos_actuales
+
+- name: Crear las copias espejo que faltan
+  when:
+    - vault_gitea.github_token is defined
+    - item.item.destino not in (item.json | map(attribute='remote_address') | list)
+  ansible.builtin.uri:
+    url: "{{ gitea_api }}/repos/{{ gitea_organizacion }}/{{ item.item.repo }}/push_mirrors"
+    method: POST
+    body_format: json
+    body:
+      remote_address: "{{ item.item.destino }}"
+      remote_username: "{{ item.item.usuario }}"
+      remote_password: "{{ vault_gitea.github_token }}"
+      interval: "{{ gitea_espejos_intervalo }}"
+      sync_on_commit: true
+    status_code: [200, 201]
+    url_username: "{{ gitea_admin }}"
+    url_password: "{{ vault_gitea.admin_clave }}"
+    force_basic_auth: true
+  loop: "{{ espejos_actuales.results | default([]) }}"
+  loop_control: { label: "{{ item.item.repo }}" }
+  no_log: true
+  changed_when: true

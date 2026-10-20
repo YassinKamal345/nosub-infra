@@ -15,6 +15,7 @@ Monta **Gitea** (el GitHub propio de la sede) en el contenedor `gitea` (CT 220, 
 - Usa su propio servidor SSH en el puerto 2222; el 22 sigue siendo el SSH del sistema (Ansible).
 - Registro cerrado y nada visible sin iniciar sesión.
 - Crea el administrador, la organización `nosub`, sus repositorios (privados) y añade la clave SSH del nodo de control.
+- Copia `nosub-infra` en GitHub (`YassinKamal345/nosub-infra`, privado): cada push a Gitea se sube solo, y además cada 8 h (`gitea_espejos`).
 
 **Cambiar de versión:** poner `gitea_version` y su `gitea_sha256` (de `https://dl.gitea.com/gitea/<versión>/`) y lanzar `sede.yml`.
 
@@ -25,3 +26,5 @@ Monta **Gitea** (el GitHub propio de la sede) en el contenedor `gitea` (CT 220, 
 **Subir el repositorio desde Proxmox:**
 `git remote add gitea ssh://git@10.10.20.10:2222/nosub/nosub-infra.git && git push -u gitea main`
 (la clave es `/root/.ssh/nosub_ansible`, configurada en `core.sshCommand` del repositorio).
+
+**Copia en GitHub:** usa un token de GitHub con permiso solo de escritura de contenido en `nosub-infra`, guardado en `vault_gitea.github_token`. Si caduca, se crea otro igual, se cambia en el Vault y se borra el espejo en Gitea (repositorio → Ajustes → Espejos) para que `sede.yml` lo vuelva a crear.

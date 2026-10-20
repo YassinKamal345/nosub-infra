@@ -28,3 +28,9 @@ gitea_repositorios:
 # Claves SSH que pueden subir código como el administrador
 gitea_claves_ssh:
   - { titulo: "Nodo de control (Proxmox)", fichero: /root/.ssh/nosub_ansible.pub }
+
+# Copias espejo en GitHub: Gitea sube cada cambio (al hacer push y cada 8 h).
+# El token va en el Vault (vault_gitea.github_token); sin él, este paso se salta.
+gitea_espejos:
+  - { repo: nosub-infra, destino: "https://github.com/YassinKamal345/nosub-infra.git", usuario: YassinKamal345 }
+gitea_espejos_intervalo: 8h0m0s

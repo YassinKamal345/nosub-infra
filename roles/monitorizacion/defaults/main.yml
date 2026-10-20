@@ -1,0 +1,10 @@
+# Prometheus (paquete de Debian): cada cuánto recoge datos y cuánto tiempo los guarda
+prometheus_intervalo: 15s
+prometheus_retencion: 30d
+
+# Grafana (repositorio oficial apt.grafana.com; la clave se comprueba por su huella)
+grafana_version: "13.2.4"
+grafana_clave_huella: B53AE77BADB630A683046005963FA27710458545
+grafana_admin: yassin                     # contraseña: vault_grafana.admin_clave
+grafana_url: "http://{{ ansible_host }}:3000/"
+grafana_dir_paneles: /var/lib/grafana/paneles

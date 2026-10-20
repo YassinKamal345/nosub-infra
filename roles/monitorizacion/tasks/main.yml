@@ -1,0 +1,116 @@
+# ---------- 1. Prometheus y exportadores (paquetes de Debian) ----------
+# Sin "recomendados": el paquete de Prometheus trae su propio node_exporter, que chocaría con el del rol node_exporter.
+- name: Paquetes
+  ansible.builtin.apt:
+    name: [prometheus, prometheus-blackbox-exporter, prometheus-postgres-exporter, gnupg]
+    install_recommends: false
+    update_cache: true
+    cache_valid_time: 86400
+
+- name: Prometheus escucha solo en local (lo consulta Grafana) y guarda {{ prometheus_retencion }}
+  ansible.builtin.copy:
+    dest: /etc/default/prometheus
+    content: |
+      # Generado por Ansible (nosub-infra, rol monitorizacion)
+      ARGS="--web.listen-address=127.0.0.1:9090 --storage.tsdb.retention.time={{ prometheus_retencion }}"
+    mode: "0644"
+  notify: Reiniciar Prometheus
+
+- name: Avisos (reglas)
+  ansible.builtin.template: { src: reglas-nosub.yml.j2, dest: /etc/prometheus/reglas-nosub.yml, mode: "0644", validate: "promtool check rules %s" }
+  notify: Reiniciar Prometheus
+
+- name: Qué recoge Prometheus
+  ansible.builtin.template: { src: prometheus.yml.j2, dest: /etc/prometheus/prometheus.yml, mode: "0644", validate: "promtool check config --syntax-only %s" }
+  notify: Reiniciar Prometheus
+
+- name: Comprobaciones de blackbox
+  ansible.builtin.template: { src: blackbox.yml.j2, dest: /etc/prometheus/blackbox.yml, mode: "0644", validate: "prometheus-blackbox-exporter --config.check --config.file=%s" }
+  notify: Reiniciar blackbox
+
+- name: blackbox escucha solo en local
+  ansible.builtin.copy:
+    dest: /etc/default/prometheus-blackbox-exporter
+    content: |
+      # Generado por Ansible (nosub-infra, rol monitorizacion)
+      ARGS="--config.file=/etc/prometheus/blackbox.yml --web.listen-address=127.0.0.1:9115"
+    mode: "0644"
+  notify: Reiniciar blackbox
+
+# En un contenedor sin privilegios no se pueden abrir sockets ICMP "crudos"; se permite el ping sin
+# privilegios del kernel (lo normal en Debian fuera de LXC) y blackbox lo usa solo.
+# El rango de grupos tiene que estar dentro de los del contenedor (0-65535).
+- name: Ping sin privilegios para la monitorización
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/60-ping.conf
+    content: |
+      # Generado por Ansible (nosub-infra, rol monitorizacion)
+      net.ipv4.ping_group_range = 0 65535
+    mode: "0644"
+  register: ping_sysctl
+
+- name: Aplicarlo ya
+  when: ping_sysctl is changed
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/60-ping.conf
+  notify: Reiniciar blackbox
+
+- name: postgres_exporter (lee las estadísticas de PostgreSQL; lleva la contraseña)
+  ansible.builtin.copy:
+    dest: /etc/default/prometheus-postgres-exporter
+    content: |
+      # Generado por Ansible (nosub-infra, rol monitorizacion)
+      DATA_SOURCE_NAME="postgresql://{{ postgresql_monitor.usuario }}:{{ vault_postgresql[postgresql_monitor.usuario] | urlencode }}@{{ ip_bbdd }}:5432/postgres?sslmode=disable"
+      ARGS="--web.listen-address=127.0.0.1:9187"
+    owner: root
+    group: prometheus
+    mode: "0640"
+  no_log: true
+  notify: Reiniciar postgres_exporter
+
+- name: Arrancar Prometheus y los exportadores
+  ansible.builtin.systemd: { name: "{{ item }}", state: started, enabled: true }
+  loop: [prometheus, prometheus-blackbox-exporter, prometheus-postgres-exporter]
+
+# ---------- 2. Grafana (repositorio oficial) ----------
+- name: Carpeta de claves de apt
+  ansible.builtin.file: { path: /etc/apt/keyrings, state: directory, mode: "0755" }
+
+- name: Clave del repositorio de Grafana
+  ansible.builtin.get_url: { url: https://apt.grafana.com/gpg.key, dest: /etc/apt/keyrings/grafana.asc, mode: "0644" }
+
+- name: Comprobar que la clave es la de Grafana Labs (por su huella)
+  ansible.builtin.shell: gpg --show-keys --with-colons /etc/apt/keyrings/grafana.asc | grep -q '^fpr:::::::::{{ grafana_clave_huella }}:'
+  changed_when: false
+
+- name: Repositorio de Grafana
+  ansible.builtin.deb822_repository:
+    name: grafana
+    uris: https://apt.grafana.com
+    suites: stable
+    components: main
+    signed_by: /etc/apt/keyrings/grafana.asc
+
+- name: Grafana {{ grafana_version }}
+  ansible.builtin.apt: { name: "grafana={{ grafana_version }}", update_cache: true }
+  notify: Reiniciar Grafana
+
+- name: Configuración de Grafana (lleva secretos del Vault)
+  ansible.builtin.template: { src: grafana.ini.j2, dest: /etc/grafana/grafana.ini, owner: root, group: grafana, mode: "0640" }
+  notify: Reiniciar Grafana
+
+- name: Origen de datos (Prometheus) y paneles del repositorio
+  ansible.builtin.template: { src: "{{ item.src }}", dest: "/etc/grafana/provisioning/{{ item.dest }}", owner: root, group: grafana, mode: "0640" }
+  loop:
+    - { src: origenes.yml.j2, dest: datasources/nosub.yml }
+    - { src: paneles.yml.j2, dest: dashboards/nosub.yml }
+  notify: Reiniciar Grafana
+
+- name: Carpeta de paneles
+  ansible.builtin.file: { path: "{{ grafana_dir_paneles }}", state: directory, owner: root, group: grafana, mode: "0750" }
+
+- name: Paneles (Grafana los vuelve a leer solo)
+  ansible.builtin.copy: { src: "paneles/{{ item }}", dest: "{{ grafana_dir_paneles }}/{{ item }}", owner: root, group: grafana, mode: "0640" }
+  loop: [admin.json, nodos.json]
+
+- name: Arrancar Grafana y que arranque sola
+  ansible.builtin.systemd: { name: grafana-server, state: started, enabled: true }

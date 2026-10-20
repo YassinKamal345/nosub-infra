@@ -1,0 +1,24 @@
+# Generado por Ansible (nosub-infra, rol monitorizacion). Avisos que se ven en Grafana y en Prometheus.
+groups:
+  - name: sede
+    rules:
+      - alert: EquipoSinRespuesta
+        expr: up{job="nodos"} == 0
+        for: 2m
+        labels: { gravedad: critica }
+        annotations: { resumen: "{{ '{{' }} $labels.nombre {{ '}}' }} no responde desde hace 2 minutos" }
+      - alert: ServicioCaido
+        expr: probe_success == 0
+        for: 2m
+        labels: { gravedad: critica }
+        annotations: { resumen: "{{ '{{' }} $labels.servicio {{ '}}' }} no responde como debe" }
+      - alert: DiscoCasiLleno
+        expr: 100 * (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) > 85
+        for: 10m
+        labels: { gravedad: aviso }
+        annotations: { resumen: "Disco de {{ '{{' }} $labels.nombre {{ '}}' }} al {{ '{{' }} $value | humanize {{ '}}' }} %" }
+      - alert: MemoriaCasiLlena
+        expr: 100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 90
+        for: 10m
+        labels: { gravedad: aviso }
+        annotations: { resumen: "RAM de {{ '{{' }} $labels.nombre {{ '}}' }} al {{ '{{' }} $value | humanize {{ '}}' }} %" }

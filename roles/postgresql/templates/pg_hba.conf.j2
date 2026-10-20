@@ -9,3 +9,6 @@ host     all         all         127.0.0.1/32        scram-sha-256
 host     {{ '%-11s' | format(b.nombre) }} {{ '%-11s' | format(b.usuario) }} {{ '%-19s' | format(ip ~ '/32') }} scram-sha-256
 {% endfor %}
 {% endfor %}
+{% for ip in postgresql_monitor.desde %}
+host     {{ '%-11s' | format('postgres') }} {{ '%-11s' | format(postgresql_monitor.usuario) }} {{ '%-19s' | format(ip ~ '/32') }} scram-sha-256
+{% endfor %}

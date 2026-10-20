@@ -47,12 +47,12 @@ flowchart TB
 | VLAN | Nombre | Red | Puerta | Qué hay | Puede ir a |
 |---|---|---|---|---|---|
 | 10 | Gestión | 10.10.10.0/24 | .1 | Proxmox, switches, AP, puesto de administración | Todo |
-| 20 | Servidores | 10.10.20.0/24 | .1 | Gitea, DNS, DHCP, BBDD, monitorización | Todo menos gestión |
+| 20 | Servidores | 10.10.20.0/24 | .1 | Gitea, DNS, DHCP, BBDD, monitorización | Todo menos gestión y la administración del firewall |
 | 30 | DMZ | 10.10.30.0/24 | .1 | Traefik, extranet, k3s | Solo Internet |
 | 40 | Empleados | 10.10.40.0/24 | .1 | Puestos y WiFi de empleados | Servidores, DMZ e Internet |
 | 50 | Invitados | 10.10.50.0/24 | .1 | WiFi de invitados | Solo Internet |
 | 60 | Lab cajas | 10.10.60.0/24 | .1 | Cajas que se preparan antes de entregarlas | Servidores e Internet |
-| — | VPN | 10.99.0.0/24 | .1 | Teletrabajo y, en la fase 4, las cajas | Servidores y DMZ |
+| — | VPN | 10.99.0.0/24 | .1 | Teletrabajo y, en la fase 4, las cajas | Servidores y DMZ (no la administración del firewall) |
 | 99 | Enlace R1 | 172.31.255.0/30 | — | WAN de OPNsense (.2) y R1 (.1) | Fuera del firewall |
 | 100 | Proveedor | 10.255.0.0/29 | — | R1 (.1), R2 (.2), R3 (.3) | Fuera del firewall |
 | 999 | Aparcado | — | — | Nada: puertos sin uso y VLAN nativa de los troncales | — |

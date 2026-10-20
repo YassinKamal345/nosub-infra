@@ -1,0 +1,27 @@
+# Generado por Ansible (nosub-infra, rol monitorizacion). Tipos de comprobación (módulos).
+modules:
+  icmp:
+    prober: icmp
+    timeout: 5s
+    icmp: { preferred_ip_protocol: ip4 }
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http: { preferred_ip_protocol: ip4 }
+  https_propio:            # web con certificado propio (OPNsense): se comprueba que responde, no el certificado
+    prober: http
+    timeout: 5s
+    http: { preferred_ip_protocol: ip4, tls_config: { insecure_skip_verify: true } }
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+    tcp: { preferred_ip_protocol: ip4 }
+  dns_nosub:               # el DNS de la sede responde por un nombre de la zona interna
+    prober: dns
+    timeout: 5s
+    dns:
+      preferred_ip_protocol: ip4
+      query_name: "gitea.{{ dominio_interno }}"
+      query_type: A
+      valid_rcodes: [NOERROR]
+      validate_answer_rrs: { fail_if_none_matches_regexp: [".*IN\tA\t.*"] }

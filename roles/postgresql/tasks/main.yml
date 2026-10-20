@@ -55,6 +55,23 @@
   loop: "{{ postgresql_bases }}"
   loop_control: { label: "{{ item.nombre }}" }
 
+- name: Usuario de la monitorización (solo lee estadísticas)
+  become: true
+  become_user: postgres
+  become_method: ansible.builtin.su
+  community.postgresql.postgresql_user:
+    name: "{{ postgresql_monitor.usuario }}"
+    password: "{{ vault_postgresql[postgresql_monitor.usuario] }}"
+  no_log: true
+
+- name: Darle el rol pg_monitor
+  become: true
+  become_user: postgres
+  become_method: ansible.builtin.su
+  community.postgresql.postgresql_membership:
+    groups: [pg_monitor]
+    target_roles: ["{{ postgresql_monitor.usuario }}"]
+
 # ---------- 4. Copias diarias ----------
 - name: Carpeta de copias
   ansible.builtin.file: { path: "{{ postgresql_dir_copias }}", state: directory, owner: postgres, group: postgres, mode: "0700" }

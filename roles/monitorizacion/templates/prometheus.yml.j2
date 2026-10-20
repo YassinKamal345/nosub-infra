@@ -1,0 +1,39 @@
+# Generado por Ansible (nosub-infra, rol monitorizacion). No editar a mano.
+global:
+  scrape_interval: {{ prometheus_intervalo }}
+  evaluation_interval: {{ prometheus_intervalo }}
+
+rule_files:
+  - /etc/prometheus/reglas-nosub.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["127.0.0.1:9090"]
+
+  # Métricas de cada máquina (node_exporter, rol node_exporter)
+  - job_name: nodos
+    static_configs:
+{% for h in groups['all'] %}
+      - targets: ["{{ hostvars[h].node_exporter_ip | default(hostvars[h].ansible_host) }}:9100"]
+        labels: { nombre: "{{ h }}" }
+{% endfor %}
+
+  # Estadísticas de PostgreSQL (postgres_exporter, en esta máquina)
+  - job_name: postgresql
+    static_configs:
+      - targets: ["127.0.0.1:9187"]
+        labels: { nombre: bbdd }
+
+  # Comprobaciones desde fuera (blackbox_exporter): ¿responde cada servicio como debe?
+  - job_name: servicios
+    metrics_path: /probe
+    static_configs:
+{% for c in monitor_comprobaciones %}
+      - targets: ["{{ c.destino }}"]
+        labels: { servicio: "{{ c.nombre }}", __param_module: {{ c.modulo }} }
+{% endfor %}
+    relabel_configs:
+      - { source_labels: [__address__], target_label: __param_target }
+      - { source_labels: [__param_target], target_label: instance }
+      - { target_label: __address__, replacement: "127.0.0.1:9115" }

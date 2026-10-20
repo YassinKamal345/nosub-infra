@@ -1,0 +1,8 @@
+- name: Reiniciar Prometheus
+  ansible.builtin.systemd: { name: prometheus, state: restarted }
+- name: Reiniciar blackbox
+  ansible.builtin.systemd: { name: prometheus-blackbox-exporter, state: restarted, daemon_reload: true }
+- name: Reiniciar postgres_exporter
+  ansible.builtin.systemd: { name: prometheus-postgres-exporter, state: restarted }
+- name: Reiniciar Grafana
+  ansible.builtin.systemd: { name: grafana-server, state: restarted }

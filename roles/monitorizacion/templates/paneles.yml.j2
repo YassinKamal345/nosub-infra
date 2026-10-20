@@ -1,0 +1,8 @@
+# Generado por Ansible (nosub-infra, rol monitorizacion): los paneles salen del repositorio
+apiVersion: 1
+providers:
+  - name: nosub
+    folder: NoSub
+    type: file
+    allowUiUpdates: false
+    options: { path: {{ grafana_dir_paneles }} }

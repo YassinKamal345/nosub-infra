@@ -26,3 +26,15 @@
     - bind9
     - kea_dhcp
     - squid
+
+- name: Métricas de todas las máquinas (node_exporter)
+  hosts: all
+  gather_facts: false
+  roles:
+    - node_exporter
+
+- name: Monitorización (Prometheus y Grafana)
+  hosts: monitor
+  gather_facts: true
+  roles:
+    - monitorizacion

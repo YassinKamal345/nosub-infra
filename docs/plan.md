@@ -19,6 +19,6 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
 ## Fase 3 · Servicios de la sede
 - [x] Bind9 + Kea DHCP + Squid en CT 221 `red-int` (10.10.20.11); relay DHCP en OPNsense; prueba `scripts/probar-dhcp.sh`
 - [x] PostgreSQL 16 en Rocky Linux 10 (CT 222 `bbdd`, 10.10.20.12), copia diaria; Gitea pasado de SQLite a PostgreSQL
-- [ ] Prometheus + Grafana (panel ADMIN) + Uptime Kuma (sin Zabbix: decidido 2026-10-16 para ahorrar RAM)
+- [x] Prometheus + Grafana (panel ADMIN) en CT 223 `monitor`; node_exporter en todas las máquinas; blackbox comprueba cada servicio (sin Zabbix: decidido 2026-10-16)
 - [ ] Intranet y extranet con PostgreSQL · Traefik con HTTPS en la DMZ
 - [ ] Prueba: borrar la sede y reconstruirla con `sede.yml`

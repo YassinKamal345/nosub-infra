@@ -1,0 +1,36 @@
+; Generado por Ansible (nosub-infra, rol monitorizacion). No editar a mano. Lleva secretos del Vault.
+[server]
+http_port = 3000
+root_url = {{ grafana_url }}
+
+[database]
+type = postgres
+host = {{ ip_bbdd }}:5432
+name = grafana
+user = grafana
+password = """{{ vault_postgresql.grafana }}"""
+ssl_mode = disable
+
+[security]
+admin_user = {{ grafana_admin }}
+admin_password = """{{ vault_grafana.admin_clave }}"""
+secret_key = {{ vault_grafana.secret_key }}
+disable_gravatar = true
+
+[users]
+allow_sign_up = false
+default_language = es-ES
+
+[auth.anonymous]
+enabled = false
+
+[analytics]
+reporting_enabled = false
+check_for_updates = false
+check_for_plugin_updates = false
+
+[date_formats]
+default_timezone = Europe/Madrid
+
+[dashboards]
+default_home_dashboard_path = {{ grafana_dir_paneles }}/admin.json

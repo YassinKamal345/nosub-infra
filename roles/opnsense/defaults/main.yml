@@ -49,6 +49,12 @@ opnsense_reglas:
   - { interface: lan, source_net: admins_tailscale, destination_net: redes_privadas, descripcion: "Administradores por Tailscale" }
   # SERVIDORES: a todo menos a la red de gestión
   - { interface: opt1, protocol: UDP, source_net: "{{ opnsense_dhcp_servidor }}", destination_net: "(self)", destination_port: "67", descripcion: "Kea: respuestas al relay DHCP" }
+  - { interface: opt1, protocol: TCP, source_net: "{{ ip_monitor }}", destination_net: 10.10.10.2, destination_port: "9100", descripcion: "Monitor: metricas de Proxmox" }
+  - { interface: opt1, protocol: TCP, source_net: "{{ ip_monitor }}", destination_net: "(self)", destination_port: "443", descripcion: "Monitor: comprobar la web del firewall" }
+  # Servidores y VPN no pueden administrar el firewall (web, SSH) a través de su puerta de enlace (10.10.20.1, 10.99.0.1...).
+  # Una regla por interfaz: OPNsense pone las de varias interfaces antes que todas las demás, y se saltaría las excepciones de arriba.
+  - { interface: opt1, action: block, protocol: TCP, destination_net: "(self)", descripcion: "Servidores: sin acceso a la administracion del firewall" }
+  - { interface: opt6, action: block, protocol: TCP, destination_net: "(self)", descripcion: "VPN: sin acceso a la administracion del firewall" }
   - { interface: opt1, source_net: opt1, destination_net: lan, destination_not: "1", descripcion: "Servidores: todo menos gestion" }
   # DMZ: solo Internet (las excepciones hacia servidores se añaden con cada servicio)
   - { interface: opt2, source_net: opt2, destination_net: redes_privadas, destination_not: "1", descripcion: "DMZ: solo Internet" }

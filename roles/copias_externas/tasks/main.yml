@@ -1,3 +1,6 @@
+- name: curl y bzip2 (para el aviso y para descomprimir)
+  ansible.builtin.package: { name: [curl, bzip2] }
+
 - name: Descargar restic {{ copias_restic_version }} (comprobando su sha256)
   ansible.builtin.get_url:
     url: "https://github.com/restic/restic/releases/download/v{{ copias_restic_version }}/restic_{{ copias_restic_version }}_linux_amd64.bz2"
@@ -5,15 +8,18 @@
     checksum: "sha256:{{ copias_restic_sha256 }}"
     mode: "0644"
 
+# Se instala si falta o no es la versión que toca (se pregunta al propio restic, no a una marca)
 - name: Instalar el binario
   ansible.builtin.shell: |
+    set -e
+    /usr/local/bin/restic version 2>/dev/null | grep -q '^restic {{ copias_restic_version }} ' && exit 0
     bzip2 -dc /root/restic_{{ copias_restic_version }}.bz2 > /usr/local/bin/restic.nuevo
-    chmod 0755 /usr/local/bin/restic.nuevo && mv /usr/local/bin/restic.nuevo /usr/local/bin/restic
-    touch /usr/local/lib/.restic-{{ copias_restic_version }}
-  args: { creates: "/usr/local/lib/.restic-{{ copias_restic_version }}" }
-
-- name: curl y bzip2 (para el aviso y para descomprimir)
-  ansible.builtin.package: { name: [curl, bzip2] }
+    chmod 0755 /usr/local/bin/restic.nuevo
+    /usr/local/bin/restic.nuevo version | grep -q '^restic {{ copias_restic_version }} '
+    mv /usr/local/bin/restic.nuevo /usr/local/bin/restic
+    echo CAMBIO
+  register: r_restic
+  changed_when: "'CAMBIO' in r_restic.stdout"
 
 - name: Carpeta de restic
   ansible.builtin.file: { path: /etc/restic, state: directory, mode: "0700" }

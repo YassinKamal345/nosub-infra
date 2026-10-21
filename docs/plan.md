@@ -40,5 +40,8 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
   un contenedor de prx (rol `caja_lab`) en una casa simulada (`vmbr81`, `vmbr82`). `caja-garcia` (cliente A,
   Navidrome) y `caja-ruiz` (cliente B, Stirling PDF): `scripts/probar-cajas.sh` 19/19 cada una;
   14/14 sondas y 10/10 equipos; segunda pasada sin cambios
-- [ ] Nube
+- [x] Cloud (rol `cloud`, Ubuntu 24.04; Oracle Free Tier, de momento simulado en prx): enlace WireGuard que abre
+  la sede, página de estado (Gatus), entrada de la VPN (cajas y teletrabajo por el VPS) y copias externas con
+  restic (gitea, bbdd, intranet; cifradas, en modo solo añadir). Probado: recuperar = idéntico al original;
+  borrar desde la sede = rechazado (403); copia rota = aviso en rojo. Falta pasar al VPS de Oracle
 - [ ] GNS3

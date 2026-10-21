@@ -3,7 +3,15 @@
 # Avisa a la página de estado del cloud de cómo ha ido (aviso "Copias externas").
 set -u
 . /etc/restic/entorno
-restic backup --host {{ inventory_hostname }} --tag nosub --one-file-system {{ copias_rutas | join(' ') }} && ok=true || ok=false
+# Solo es "bien" si restic responde de verdad, la copia termina sin error y aparece una copia de hace menos de 1 hora
+ok=false
+if restic version | grep -q '^restic ' \
+   && restic backup --host {{ inventory_hostname }} --tag nosub --one-file-system {{ copias_rutas | join(' ') }} \
+   && restic snapshots --host {{ inventory_hostname }} --latest 1 --json | python3 -c '
+import json, sys, datetime as d
+s = json.load(sys.stdin)
+sys.exit(0 if s and d.datetime.now(d.timezone.utc) - d.datetime.fromisoformat(s[-1]["time"]) < d.timedelta(hours=1) else 1)'
+then ok=true; fi
 {% if copias_clave_latido is defined %}
 curl -fs -m 10 {{ '-k ' if cloud_laboratorio else '' }}--resolve {{ cloud_nombre_estado }}:443:{{ cloud_ip_publica }} -X POST \
   -H "Authorization: Bearer $LATIDO" "https://{{ cloud_nombre_estado }}/api/v1/endpoints/copias_copias-externas/external?success=$ok" >/dev/null

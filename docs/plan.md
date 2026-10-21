@@ -22,4 +22,7 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
 - [x] Prometheus + Grafana (panel ADMIN) en CT 223 `monitor`; node_exporter en todas las máquinas; blackbox comprueba cada servicio (sin Zabbix: decidido 2026-10-16)
 - [x] Intranet (Wiki.js + Nextcloud, CT 224 `intranet`) y extranet (portal de clientes propio en la DMZ, CT 230 `extranet`) con PostgreSQL
 - [x] Traefik 3.7 con HTTPS en la DMZ (CT 230) delante del portal; certificados de la CA propia "NoSub CA"
-- [ ] Prueba: borrar la sede y reconstruirla con `sede.yml`
+- [x] Prueba de reconstrucción (2026-10-21): copia vzdump, borrado de OPNsense y los 6 LXC, y `sede.yml`
+  desde cero → sin errores a la primera (11 min); luego `git push` del repo a la Gitea nueva y pasada normal
+  (crea el espejo de GitHub). Segunda pasada: 0 cambios. Pruebas de red, DHCP y VPN, 12/12 sondas y HTTPS del portal OK.
+  Ansible rehace la **configuración**, no los **datos** (repos, wiki, ficheros): esos vuelven de las copias.

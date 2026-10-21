@@ -1,0 +1,39 @@
+# Gestionado por Ansible (nosub-infra/roles/traefik): webs publicadas y certificado
+http:
+  routers:
+{% for s in traefik_sitios %}
+    {{ s.nombre }}:
+      rule: "{{ s.nombres | map('regex_replace', '^(.*)$', 'Host(`\\1`)') | join(' || ') }}"
+      entryPoints: [websecure]
+      service: {{ s.nombre }}
+      middlewares: [seguridad]
+      tls: {}
+{% endfor %}
+  services:
+{% for s in traefik_sitios %}
+    {{ s.nombre }}:
+      loadBalancer:
+        servers: [{ url: "{{ s.destino }}" }]
+{% if s.salud is defined %}
+        healthCheck: { path: "{{ s.salud }}", interval: 30s }
+{% endif %}
+{% endfor %}
+  middlewares:
+    seguridad:
+      headers:
+        stsSeconds: 31536000          # el navegador recuerda que esta web va siempre por HTTPS
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: same-origin
+
+tls:
+  certificates:                       # con sniStrict solo se aceptan los nombres de los certificados de esta lista
+    - certFile: {{ traefik_dir_config }}/certs/traefik.crt
+      keyFile: {{ traefik_dir_config }}/certs/traefik.key
+  options:
+    default: { minVersion: VersionTLS12, sniStrict: true }
+  stores:
+    default:
+      defaultCertificate:
+        certFile: {{ traefik_dir_config }}/certs/traefik.crt
+        keyFile: {{ traefik_dir_config }}/certs/traefik.key

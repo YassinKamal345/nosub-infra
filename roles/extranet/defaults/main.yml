@@ -1,7 +1,8 @@
 # Portal de clientes de NoSub (aplicación propia en Python, files/portal). Va en la DMZ.
 extranet_usuario: extranet
 extranet_dir: /opt/extranet           # código del portal (lo copia Ansible desde el repositorio)
-extranet_puerto: 8080                 # en la 3.5 Traefik pondrá HTTPS delante
+extranet_escucha: 127.0.0.1           # solo en local: desde fuera se entra por Traefik (HTTPS, rol traefik)
+extranet_puerto: 8080
 extranet_procesos: 2                  # procesos de gunicorn
 
 # Base de datos: PostgreSQL en bbdd (base "extranet", contraseña en vault_postgresql.extranet).

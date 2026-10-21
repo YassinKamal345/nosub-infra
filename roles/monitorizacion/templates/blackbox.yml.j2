@@ -12,6 +12,14 @@ modules:
     prober: http
     timeout: 5s
     http: { preferred_ip_protocol: ip4, tls_config: { insecure_skip_verify: true } }
+  https_portal:            # portal de clientes por Traefik: exige HTTPS con un certificado válido de NoSub CA
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      fail_if_not_ssl: true
+      headers: { Host: "portal.{{ dominio_interno }}" }
+      tls_config: { ca_file: /etc/prometheus/nosub-ca.crt, server_name: "portal.{{ dominio_interno }}" }
   tcp_connect:
     prober: tcp
     timeout: 5s

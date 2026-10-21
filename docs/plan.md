@@ -21,5 +21,5 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
 - [x] PostgreSQL 16 en Rocky Linux 10 (CT 222 `bbdd`, 10.10.20.12), copia diaria; Gitea pasado de SQLite a PostgreSQL
 - [x] Prometheus + Grafana (panel ADMIN) en CT 223 `monitor`; node_exporter en todas las máquinas; blackbox comprueba cada servicio (sin Zabbix: decidido 2026-10-16)
 - [x] Intranet (Wiki.js + Nextcloud, CT 224 `intranet`) y extranet (portal de clientes propio en la DMZ, CT 230 `extranet`) con PostgreSQL
-- [ ] Traefik con HTTPS en la DMZ
+- [x] Traefik 3.7 con HTTPS en la DMZ (CT 230) delante del portal; certificados de la CA propia "NoSub CA"
 - [ ] Prueba: borrar la sede y reconstruirla con `sede.yml`

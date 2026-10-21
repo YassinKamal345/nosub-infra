@@ -33,11 +33,12 @@
   roles:
     - intranet
 
-- name: Extranet (portal de clientes, en la DMZ)
+- name: Extranet (portal de clientes y Traefik con HTTPS, en la DMZ)
   hosts: extranet
   gather_facts: true
   roles:
     - extranet
+    - traefik
 
 - name: Métricas de todas las máquinas (node_exporter)
   hosts: all

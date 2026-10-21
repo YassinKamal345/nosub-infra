@@ -4,14 +4,18 @@ import secrets
 from functools import wraps
 
 from flask import Flask, abort, flash, g, redirect, render_template, request, session, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash
 
 from bd import conectar
 
 app = Flask(__name__, template_folder="plantillas", static_folder="estatico")
+# Delante está Traefik: de él se toma la dirección y el esquema (https) reales del visitante
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.config.update(
     SECRET_KEY=os.environ["PORTAL_SECRETO"],
     SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=os.environ.get("PORTAL_COOKIE_SEGURA", "1") == "1",   # la cookie solo viaja por HTTPS
     SESSION_COOKIE_SAMESITE="Lax",
     PERMANENT_SESSION_LIFETIME=8 * 3600,
 )

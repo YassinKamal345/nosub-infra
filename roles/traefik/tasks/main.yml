@@ -1,0 +1,121 @@
+# ---------- 1. Programa ----------
+- name: Paquetes (python3-cryptography para crear la clave y la petición del certificado)
+  ansible.builtin.apt: { name: [python3-cryptography, curl], install_recommends: false, update_cache: true, cache_valid_time: 86400 }
+
+- name: Usuario {{ traefik_usuario }} (Traefik no corre como root)
+  ansible.builtin.user: { name: "{{ traefik_usuario }}", system: true, create_home: false, home: /nonexistent, shell: /usr/sbin/nologin, comment: Traefik }
+
+- name: Carpetas de configuración
+  ansible.builtin.file: { path: "{{ item }}", state: directory, owner: root, group: "{{ traefik_usuario }}", mode: "0750" }
+  loop: ["{{ traefik_dir_config }}", "{{ traefik_dir_config }}/dinamica", "{{ traefik_dir_config }}/certs"]
+
+- name: Descargar Traefik {{ traefik_version }} (comprobando su sha256)
+  ansible.builtin.get_url:
+    url: "https://github.com/traefik/traefik/releases/download/v{{ traefik_version }}/traefik_v{{ traefik_version }}_linux_amd64.tar.gz"
+    dest: "/var/cache/traefik-{{ traefik_version }}.tar.gz"
+    checksum: "sha256:{{ traefik_sha256 }}"
+    mode: "0644"
+
+- name: Carpeta de la versión
+  ansible.builtin.file: { path: "/usr/local/lib/traefik-{{ traefik_version }}", state: directory, mode: "0755" }
+
+- name: Descomprimir Traefik {{ traefik_version }}
+  ansible.builtin.unarchive:
+    src: "/var/cache/traefik-{{ traefik_version }}.tar.gz"
+    dest: "/usr/local/lib/traefik-{{ traefik_version }}"
+    remote_src: true
+    include: [traefik]
+    creates: "/usr/local/lib/traefik-{{ traefik_version }}/traefik"
+
+- name: Usar esa versión
+  ansible.builtin.file: { src: "/usr/local/lib/traefik-{{ traefik_version }}/traefik", dest: /usr/local/bin/traefik, state: link }
+  notify: Reiniciar Traefik
+
+# ---------- 2. Certificado firmado por NoSub CA ----------
+- name: Certificado público de NoSub CA (para comprobar la cadena)
+  ansible.builtin.copy: { src: "{{ inventory_dir }}/ca/nosub-ca.crt", dest: "{{ traefik_dir_config }}/certs/nosub-ca.crt", mode: "0644" }
+
+- name: Clave privada del certificado (se crea aquí y no sale de esta máquina)
+  community.crypto.openssl_privatekey:
+    path: "{{ traefik_dir_config }}/certs/traefik.key"
+    type: ECC
+    curve: secp256r1
+    owner: root
+    group: "{{ traefik_usuario }}"
+    mode: "0640"
+
+- name: Petición de certificado con todos los nombres
+  community.crypto.openssl_csr_pipe:
+    privatekey_path: "{{ traefik_dir_config }}/certs/traefik.key"
+    common_name: "{{ traefik_sitios[0].nombres[0] }}"
+    organization_name: "{{ empresa }}"
+    subject_alt_name: "{{ traefik_sitios | map(attribute='nombres') | flatten | map('regex_replace', '^', 'DNS:') | list + ['IP:' ~ ansible_host] }}"
+  register: traefik_csr
+  changed_when: false    # solo genera el texto de la petición; no cambia nada en la máquina
+
+- name: ¿Cómo está el certificado actual?
+  community.crypto.x509_certificate_info:
+    path: "{{ traefik_dir_config }}/certs/traefik.crt"
+    valid_at: { renovar: "{{ traefik_cert_renovar }}" }
+  register: traefik_cert_actual
+  failed_when: false
+
+- name: Certificado actual (para no firmar otro si no hace falta)
+  ansible.builtin.slurp: { src: "{{ traefik_dir_config }}/certs/traefik.crt" }
+  register: traefik_cert_leido
+  when: traefik_cert_actual.valid_at is defined
+
+# Se firma en el nodo de control: la clave de la CA sale del Vault y nunca se copia a la DMZ.
+- name: Firmar el certificado con NoSub CA (nuevo, con nombres cambiados o a punto de caducar)
+  delegate_to: localhost
+  community.crypto.x509_certificate_pipe:
+    provider: ownca
+    csr_content: "{{ traefik_csr.csr }}"
+    content: "{{ (traefik_cert_leido.content | b64decode) if (traefik_cert_actual.valid_at.renovar | default(false)) else omit }}"
+    ownca_content: "{{ lookup('ansible.builtin.file', inventory_dir ~ '/ca/nosub-ca.crt') }}"
+    ownca_privatekey_content: "{{ vault_ca.clave }}"
+    ownca_not_after: "+{{ traefik_cert_dias }}d"
+    ownca_digest: sha256
+  register: traefik_firma
+  no_log: true
+
+- name: Guardar el certificado (con la CA detrás, para que el navegador tenga la cadena completa)
+  ansible.builtin.copy:
+    content: "{{ traefik_firma.certificate }}{{ lookup('ansible.builtin.file', inventory_dir ~ '/ca/nosub-ca.crt') }}\n"
+    dest: "{{ traefik_dir_config }}/certs/traefik.crt"
+    owner: root
+    group: "{{ traefik_usuario }}"
+    mode: "0644"
+  when: traefik_firma.changed
+  notify: Reiniciar Traefik
+
+# ---------- 3. Configuración y servicio ----------
+- name: Configuración fija
+  ansible.builtin.template: { src: traefik.yml.j2, dest: "{{ traefik_dir_config }}/traefik.yml", owner: root, group: "{{ traefik_usuario }}", mode: "0640" }
+  notify: Reiniciar Traefik
+
+- name: Webs publicadas (Traefik la vuelve a leer sola)
+  ansible.builtin.template: { src: sitios.yml.j2, dest: "{{ traefik_dir_config }}/dinamica/sitios.yml", owner: root, group: "{{ traefik_usuario }}", mode: "0640" }
+
+- name: Servicio systemd
+  ansible.builtin.template: { src: traefik.service.j2, dest: /etc/systemd/system/traefik.service, mode: "0644" }
+  notify: Reiniciar Traefik
+
+- name: Arrancar Traefik y que arranque solo
+  ansible.builtin.systemd: { name: traefik, state: started, enabled: true, daemon_reload: true }
+
+- name: Aplicar ya los reinicios pendientes
+  ansible.builtin.meta: flush_handlers
+
+# La DMZ usa el DNS del firewall, que no conoce nosub.lan: se conecta a esta misma máquina con --resolve
+- name: Comprobar cada web por HTTPS, fiándose solo de NoSub CA
+  ansible.builtin.command:
+    argv: [curl, -fsS, -o, /dev/null, --cacert, "{{ traefik_dir_config }}/certs/nosub-ca.crt",
+           --resolve, "{{ item.nombres[0] }}:443:127.0.0.1", "https://{{ item.nombres[0] }}{{ item.salud | default('/') }}"]
+  loop: "{{ traefik_sitios }}"
+  loop_control: { label: "{{ item.nombres[0] }}" }
+  register: traefik_prueba
+  until: traefik_prueba.rc == 0
+  retries: 15
+  delay: 2
+  changed_when: false

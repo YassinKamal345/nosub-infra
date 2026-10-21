@@ -1,0 +1,29 @@
+# Gestionado por Ansible (nosub-infra/roles/traefik): configuración fija de Traefik
+# aliasHeadersStrategy: delete = borra las cabeceras disfrazadas (X_Forwarded_For en vez de X-Forwarded-For),
+# que el portal (Python/WSGI) leería como si las hubiera puesto Traefik.
+entryPoints:
+  web:                       # HTTP: solo redirige a HTTPS
+    address: ":80"
+    http:
+      aliasHeadersStrategy: delete
+      redirections:
+        entryPoint: { to: websecure, scheme: https, permanent: true }
+  websecure:
+    address: ":443"
+    http: { aliasHeadersStrategy: delete }
+  metricas:
+    address: "{{ ansible_host }}:{{ traefik_puerto_metricas }}"
+    http: { aliasHeadersStrategy: delete }
+
+providers:
+  file:
+    directory: {{ traefik_dir_config }}/dinamica
+    watch: true
+
+metrics:
+  prometheus: { entryPoint: metricas }
+ping: { entryPoint: metricas }
+
+log: { level: INFO }
+accessLog: {}
+global: { checkNewVersion: false, sendAnonymousUsage: false }

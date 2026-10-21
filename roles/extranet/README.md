@@ -5,8 +5,8 @@ Es una aplicación propia en Python (Flask), con el código en `files/portal/` y
 
 | Qué | Dónde |
 |---|---|
-| Portal | `http://portal.nosub.lan:8080` · laboratorio: `http://portal.yk.internal` |
-| Comprobación | `http://10.10.30.10:8080/salud` (la usa la monitorización) |
+| Portal | `https://portal.nosub.lan` (por Traefik, rol `traefik`; el portal solo escucha en `127.0.0.1:8080`) |
+| Comprobación | `https://portal.nosub.lan/salud` (la usa la monitorización) |
 | Clientes de prueba | `cliente-a` (Familia García) y `cliente-b` (Estudio Ruiz); contraseñas en `vault_extranet.clientes` |
 
 **Qué puede hacer un cliente:** entrar con su usuario, ver sus cajas (dirección en la VPN, red de su casa,
@@ -21,7 +21,7 @@ servicios y última conexión) y abrir incidencias sobre ellas.
 - **Por qué en la DMZ:** es lo único que verán los clientes desde Internet. Si alguien lo rompe, desde la DMZ
   solo llega a Internet y al puerto 5432 de `bbdd` (regla "Extranet: a su base de datos" en OPNsense), y
   PostgreSQL solo le deja entrar en su base (`pg_hba`).
-- En la fase 3.5, Traefik pondrá HTTPS delante; en la fase 4, las cajas rellenarán su última conexión.
+- Traefik pone HTTPS delante (la cookie de sesión solo viaja por HTTPS). En la fase 4, las cajas rellenarán su última conexión.
 
 **Añadir un cliente:** añadirlo a `extranet_clientes` (en `defaults/main.yml` o en el inventario), poner su
 contraseña en `vault_extranet.clientes.<usuario>` y lanzar `sede.yml`.

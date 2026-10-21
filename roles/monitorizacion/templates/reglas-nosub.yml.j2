@@ -12,6 +12,11 @@ groups:
         for: 2m
         labels: { gravedad: critica }
         annotations: { resumen: "{{ '{{' }} $labels.servicio {{ '}}' }} no responde como debe" }
+      - alert: CertificadoCaducaPronto
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 21
+        for: 1h
+        labels: { gravedad: aviso }
+        annotations: { resumen: "El certificado de {{ '{{' }} $labels.servicio {{ '}}' }} caduca en {{ '{{' }} $value | humanize {{ '}}' }} días" }
       - alert: DiscoCasiLleno
         expr: 100 * (1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) > 85
         for: 10m

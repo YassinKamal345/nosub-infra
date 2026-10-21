@@ -24,6 +24,10 @@
   ansible.builtin.template: { src: prometheus.yml.j2, dest: /etc/prometheus/prometheus.yml, mode: "0644", validate: "promtool check config --syntax-only %s" }
   notify: Reiniciar Prometheus
 
+- name: Certificado público de NoSub CA (para comprobar los certificados de la sede)
+  ansible.builtin.copy: { src: "{{ inventory_dir }}/ca/nosub-ca.crt", dest: /etc/prometheus/nosub-ca.crt, mode: "0644" }
+  notify: Reiniciar blackbox
+
 - name: Comprobaciones de blackbox
   ansible.builtin.template: { src: blackbox.yml.j2, dest: /etc/prometheus/blackbox.yml, mode: "0644", validate: "prometheus-blackbox-exporter --config.check --config.file=%s" }
   notify: Reiniciar blackbox

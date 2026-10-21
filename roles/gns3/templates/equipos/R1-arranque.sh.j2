@@ -1,0 +1,17 @@
+#!/bin/sh
+# Gestionado por Ansible (nosub-infra/roles/gns3): {{ nombre }} en el ensayo de GNS3 ({{ r.papel }}).
+# Lo mismo que network/generado/{{ nombre }}.cfg (Cisco), con FRRouting y Linux.
+#   eth0 = {{ r.puerto_wan }} (red del centro, por DHCP) · eth1 = {{ r.puerto_troncal }} (troncal a SW1: VLANs {{ vlan_enlace_r1.id }} y {{ vlan_proveedor.id }})
+set -e
+for v in {{ vlan_enlace_r1.id }} {{ vlan_proveedor.id }}; do ip link add link eth1 name eth1.$v type vlan id $v; done
+for i in eth0 eth1 eth1.{{ vlan_enlace_r1.id }} eth1.{{ vlan_proveedor.id }}; do ip link set $i up; done
+ip addr add {{ r.ip_enlace }} dev eth1.{{ vlan_enlace_r1.id }}          # enlace con OPNsense (WAN de la sede)
+ip addr add {{ r.ip_proveedor }} dev eth1.{{ vlan_proveedor.id }}      # "Internet" simulado (clientes)
+udhcpc -i eth0 -b -S                                     # IP de la red del centro
+sysctl -w net.ipv4.ip_forward=1 >/dev/null
+# NAT: lo que sale al centro usa la IP de {{ nombre }}
+iptables -t nat -A POSTROUTING -o eth0 -s {{ vlan_enlace_r1.red }} -j MASQUERADE
+iptables -t nat -A POSTROUTING -o eth0 -s {{ vlan_proveedor.red }} -j MASQUERADE
+cp /etc/nosub/frr.conf /etc/frr/frr.conf
+sed -i 's/^ospfd=no/ospfd=yes/' /etc/frr/daemons
+exec /usr/lib/frr/docker-start

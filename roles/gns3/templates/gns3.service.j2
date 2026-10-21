@@ -1,0 +1,15 @@
+# Gestionado por Ansible (nosub-infra/roles/gns3)
+[Unit]
+Description=Servidor GNS3 {{ gns3_version }} (ensayo de la red física de NoSub)
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+[Service]
+User=gns3
+Group=gns3
+ExecStart=/usr/bin/gns3server --config /home/gns3/.config/GNS3/2.2/gns3_server.conf
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

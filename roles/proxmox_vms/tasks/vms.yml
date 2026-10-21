@@ -40,6 +40,15 @@
       runcmd:
         - [systemctl, start, qemu-guest-agent]
 
+# Las VMs "a demanda" (al_arrancar: false, p. ej. GNS3) se crean, pero solo se encienden si se piden en
+# vms_encender (lo hace su propio playbook, p. ej. playbooks/gns3.yml)
+- name: Qué VMs se encienden ahora
+  ansible.builtin.set_fact:
+    vms_encendidas: >-
+      {{ maquinas_virtuales | selectattr('al_arrancar', 'undefined') | list
+         + maquinas_virtuales | selectattr('al_arrancar', 'defined') | selectattr('al_arrancar') | list
+         + maquinas_virtuales | selectattr('nombre', 'in', vms_encender | default([])) | list }}
+
 - name: ¿Qué VMs existen ya?
   ansible.builtin.stat: { path: "/etc/pve/qemu-server/{{ item.vmid }}.conf" }
   loop: "{{ maquinas_virtuales }}"
@@ -56,9 +65,9 @@
     set -e
     qm create {{ vm.vmid }} --name {{ vm.nombre }} --ostype l26 --machine q35 --cpu host \
       --cores {{ vm.nucleos }} --memory {{ vm.ram }} --balloon 0 \
-      --net0 virtio,bridge={{ vm.puente }},tag={{ vm.vlan }} \
+      --net0 virtio,bridge={{ vm.puente }},tag={{ vm.vlan }}{% for r in vm.redes_extra | default([]) %} --net{{ loop.index }} virtio,bridge={{ r.puente }},tag={{ r.vlan }}{% endfor %} \
       --scsihw virtio-scsi-single --serial0 socket --vga serial0 --agent 1 \
-      --onboot 1 --startup order={{ vm.arranque }} --tags "sede;vlan{{ vm.vlan }}" \
+      --onboot {{ 1 if vm.al_arrancar | default(true) else 0 }} --startup order={{ vm.arranque }} --tags "sede;vlan{{ vm.vlan }}" \
       --description "{{ vm.descripcion }}. Gestionado por Ansible: nosub-infra/roles/proxmox_vms"
     qm set {{ vm.vmid }} --scsi0 {{ vm.almacen }}:0,import-from={{ vm_dir_imagenes }}/{{ vm_imagenes[vm.so].fichero }},iothread=1,discard=on
     qm resize {{ vm.vmid }} scsi0 {{ vm.disco }}G
@@ -72,7 +81,7 @@
 
 - name: Encenderlas
   ansible.builtin.shell: qm status {{ item.vmid }} | grep -q running || { qm start {{ item.vmid }} && echo CAMBIO; }
-  loop: "{{ maquinas_virtuales }}"
+  loop: "{{ vms_encendidas }}"
   loop_control: { label: "{{ item.vmid }} {{ item.nombre }}" }
   register: r_vm_arranque
   changed_when: "'CAMBIO' in r_vm_arranque.stdout"
@@ -80,7 +89,7 @@
 # La primera vez, cloud-init instala el agente: puede tardar unos minutos
 - name: Esperar al agente de QEMU (señal de que cloud-init ha terminado)
   ansible.builtin.command: qm guest cmd {{ item.vmid }} ping
-  loop: "{{ maquinas_virtuales }}"
+  loop: "{{ vms_encendidas }}"
   loop_control: { label: "{{ item.nombre }}" }
   register: r_agente
   until: r_agente.rc == 0
@@ -90,7 +99,7 @@
 
 - name: Leer la clave SSH de cada VM (desde dentro, por el agente)
   ansible.builtin.shell: qm guest exec {{ item.vmid }} -- cat /etc/ssh/ssh_host_ed25519_key.pub | python3 -c 'import json,sys;print(json.load(sys.stdin)["out-data"].strip())'
-  loop: "{{ maquinas_virtuales }}"
+  loop: "{{ vms_encendidas }}"
   loop_control: { label: "{{ item.nombre }}" }
   register: claves_vm
   changed_when: false
@@ -105,5 +114,5 @@
 
 - name: Esperar a que respondan por SSH
   ansible.builtin.wait_for: { host: "{{ item.ip }}", port: 22, timeout: 300 }
-  loop: "{{ maquinas_virtuales }}"
+  loop: "{{ vms_encendidas }}"
   loop_control: { label: "{{ item.nombre }} {{ item.ip }}" }

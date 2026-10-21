@@ -14,7 +14,15 @@ scrape_configs:
   # Métricas de cada máquina (node_exporter, rol node_exporter)
   - job_name: nodos
     static_configs:
-{% for h in groups['all'] | reject('in', groups['cajas'] | default([])) %}
+{% for h in groups['all'] | reject('in', groups['cajas'] | default([])) | reject('in', monitor_a_demanda) %}
+      - targets: ["{{ hostvars[h].node_exporter_ip | default(hostvars[h].ansible_host) }}:9100"]
+        labels: { nombre: "{{ h }}" }
+{% endfor %}
+
+  # Máquinas que se encienden a demanda (p. ej. GNS3): se ven en Grafana, pero no avisan si están apagadas
+  - job_name: a_demanda
+    static_configs:
+{% for h in monitor_a_demanda %}
       - targets: ["{{ hostvars[h].node_exporter_ip | default(hostvars[h].ansible_host) }}:9100"]
         labels: { nombre: "{{ h }}" }
 {% endfor %}

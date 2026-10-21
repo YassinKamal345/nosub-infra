@@ -1,0 +1,3 @@
+# Gestionado por Ansible (nosub-infra/roles/gns3): FRRouting con iptables (NAT) y udhcpd (DHCP de las casas)
+FROM {{ gns3_imagen_frr_base }}
+RUN apk add --no-cache iptables busybox-extras

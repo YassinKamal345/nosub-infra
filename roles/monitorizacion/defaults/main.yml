@@ -8,3 +8,6 @@ grafana_clave_huella: B53AE77BADB630A683046005963FA27710458545
 grafana_admin: yassin                     # contraseña: vault_grafana.admin_clave
 grafana_url: "http://{{ ansible_host }}:3000/"
 grafana_dir_paneles: /var/lib/grafana/paneles
+
+# Máquinas que se encienden a demanda (maquinas_virtuales con al_arrancar: false): grupo propio, sin aviso si están apagadas
+monitor_a_demanda: "{{ maquinas_virtuales | default([]) | selectattr('al_arrancar', 'defined') | rejectattr('al_arrancar') | map(attribute='nombre') | list }}"

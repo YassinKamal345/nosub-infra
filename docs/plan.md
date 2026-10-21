@@ -44,4 +44,6 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
   la sede, página de estado (Gatus), entrada de la VPN (cajas y teletrabajo por el VPS) y copias externas con
   restic (gitea, bbdd, intranet; cifradas, en modo solo añadir). Probado: recuperar = idéntico al original;
   borrar desde la sede = rechazado (403); copia rota = aviso en rojo. Falta pasar al VPS de Oracle
-- [ ] GNS3
+- [x] GNS3 (rol `gns3`, VM 210 a demanda, `playbooks/gns3.yml`): ensayo de R1-R3 y SW1 con FRRouting y los datos
+  de `red_fisica.yml`; R1 sale por la VLAN 50 real (nodo Cloud). Pruebas: OSPF, rutas, DHCP, NAT y aislamiento
+  entre clientes, todas bien; segunda pasada sin cambios

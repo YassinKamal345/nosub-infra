@@ -1,0 +1,16 @@
+#!/usr/sbin/nft -f
+# Gestionado por Ansible (nosub-infra/roles/gns3): cortafuegos de la VM de GNS3. Solo toca su tabla.
+table inet nosub
+delete table inet nosub
+table inet nosub {
+  chain entrada {
+    type filter hook input priority 0; policy drop;
+    iif lo accept                                         # GNS3 une los equipos por túneles locales (ubridge)
+    ct state established,related accept
+    ct state invalid drop
+    meta l4proto { icmp, ipv6-icmp } accept
+    ip saddr { {{ cajas_nodos_control | join(', ') }} } tcp dport 22 accept
+    ip saddr { {{ gns3_web_permitido | join(', ') }} } tcp dport {{ gns3_puerto }} accept
+    ip saddr {{ ip_monitor }} tcp dport {{ node_exporter_puerto | default(9100) }} accept
+  }
+}

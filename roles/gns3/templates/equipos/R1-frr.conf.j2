@@ -1,0 +1,20 @@
+! Gestionado por Ansible (nosub-infra/roles/gns3): {{ nombre }} ({{ r.papel }})
+frr defaults traditional
+hostname {{ nombre }}
+service integrated-vtysh-config
+!
+interface lo
+ ip address {{ r.loopback }}/32
+!
+interface eth1.{{ vlan_proveedor.id }}
+ no ip ospf passive
+!
+! OSPF: da a R2 y R3 la ruta por defecto y la WAN de la sede
+router ospf
+ ospf router-id {{ r.loopback }}
+ passive-interface default
+ network {{ r.loopback }}/32 area 0
+ network {{ vlan_enlace_r1.red }} area 0
+ network {{ vlan_proveedor.red }} area 0
+ default-information originate
+!

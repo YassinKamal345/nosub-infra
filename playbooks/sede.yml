@@ -60,7 +60,7 @@
     - traefik
 
 - name: Métricas de todas las máquinas de la sede (node_exporter; las cajas lo llevan en su rol)
-  hosts: all:!cajas
+  hosts: all:!cajas:!gns3     # GNS3 se enciende a demanda: lo lleva playbooks/gns3.yml
   gather_facts: false
   roles:
     - node_exporter

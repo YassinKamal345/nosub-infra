@@ -1,0 +1,19 @@
+# GNS3 (VM gns3, VLAN 10): ensayo de la red física de la sede (R1-R3 y SW1, ver docs/red.md).
+# Los routers son FRRouting en Docker (las imágenes de Cisco IOS son de pago); su configuración sale de los
+# mismos datos que la de los equipos reales (inventories/sede/group_vars/all/red_fisica.yml).
+gns3_version: "2.2.61"                 # PPA oficial ppa:gns3/ppa
+gns3_puerto: 3080
+gns3_usuario_web: admin
+gns3_clave_fichero: /root/gns3-admin.clave   # contraseña de la web: se crea en la VM y no sale de ella
+gns3_dir: /opt/nosub-gns3              # ficheros de cada equipo y descripción de la topología
+gns3_proyecto: "NoSub - red fisica"
+
+gns3_imagen_frr_base: quay.io/frrouting/frr:10.7.1
+gns3_imagen_frr: nosub/frr:10.7.1      # la de FRR más iptables (NAT) y udhcpd (DHCP), construida en la VM
+gns3_imagen_equipo: docker.io/library/alpine:3.22.6
+
+# Segunda tarjeta de la VM (VLAN 50, invitados): la "red del centro" de R1 en GNS3 (nodo Cloud)
+gns3_tarjeta_centro: enp6s19            # nombre fijo de net1 en una VM q35 (cloud-init solo renombra la primera a eth0)
+
+# Quién puede abrir la web de GNS3: la red de gestión y los administradores por Tailscale
+gns3_web_permitido: [10.10.10.0/24, 100.64.0.0/10]

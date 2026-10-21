@@ -1,0 +1,60 @@
+# Pruebas del ensayo: lo mismo que se comprobará con los equipos reales en el centro
+- name: Ayudante para entrar en los equipos del ensayo
+  ansible.builtin.copy: { src: gns3-en.sh, dest: /usr/local/sbin/nosub-gns3-en, mode: "0755" }
+
+- name: OSPF - R2 y R3 ven a R1 como vecino (estado Full)
+  ansible.builtin.shell: nosub-gns3-en {{ item }} vtysh -c 'show ip ospf neighbor' | grep -q '{{ routers.R1.loopback }}.*Full'
+  loop: [R2, R3]
+  register: r_ospf
+  until: r_ospf.rc == 0
+  retries: 30
+  delay: 5
+  changed_when: false
+
+- name: OSPF - R2 aprende de R1 la ruta por defecto y la WAN de la sede
+  ansible.builtin.shell: |
+    nosub-gns3-en R2 vtysh -c 'show ip route ospf' | grep -q '0.0.0.0/0'
+    nosub-gns3-en R2 vtysh -c 'show ip route ospf' | grep -q '{{ vlan_enlace_r1.red }}'
+  register: r_rutas
+  until: r_rutas.rc == 0
+  retries: 12
+  delay: 5
+  changed_when: false
+
+- name: R1 tiene IP de la red del centro (DHCP de Kea en la VLAN 50)
+  ansible.builtin.shell: nosub-gns3-en R1 ip -4 -br addr show eth0 | grep -oE '10\.10\.50\.[0-9]+'
+  register: r_r1_ip
+  until: r_r1_ip.rc == 0
+  retries: 12
+  delay: 5
+  changed_when: false
+
+- name: Las cajas de los clientes reciben IP por DHCP de su router
+  ansible.builtin.shell: nosub-gns3-en {{ item.caja }} ip -4 addr show eth0 | grep -qE 'inet {{ routers[item.router].lan | ansible.utils.ipaddr('network') | regex_replace('\.0$', '.') | replace('.', '\.') }}[0-9]+/{{ routers[item.router].lan | ansible.utils.ipaddr('prefix') }} '   # con su máscara; ip de BusyBox: sin -br
+  loop: [{ caja: Caja-A, router: R2 }, { caja: Caja-B, router: R3 }]
+  loop_control: { label: "{{ item.caja }}" }
+  register: r_dhcp
+  until: r_dhcp.rc == 0
+  retries: 12
+  delay: 5
+  changed_when: false
+
+- name: Resultado esperado de cada prueba
+  ansible.builtin.shell: |
+    p(){ nosub-gns3-en "$1" ping -c2 -W2 "$2" >/dev/null 2>&1 && echo llega || echo bloqueado; }
+    echo "Caja-A -> WAN de la sede ({{ vlan_enlace_r1.red | ansible.utils.ipaddr('2') | ansible.utils.ipaddr('address') }}): $(p Caja-A {{ vlan_enlace_r1.red | ansible.utils.ipaddr('2') | ansible.utils.ipaddr('address') }})"
+    echo "Caja-A -> Internet (9.9.9.9): $(p Caja-A 9.9.9.9)"
+    echo "Caja-A -> red del cliente B ({{ routers.R3.lan | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}): $(p Caja-A {{ routers.R3.lan | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }})"
+    echo "Sede-WAN -> R2 ({{ routers.R2.ip_proveedor | ansible.utils.ipaddr('address') }}): $(p Sede-WAN {{ routers.R2.ip_proveedor | ansible.utils.ipaddr('address') }})"
+  register: r_pruebas
+  changed_when: false
+
+- name: Comprobar el resultado
+  ansible.builtin.assert:
+    that:
+      - "'WAN de la sede' in r_pruebas.stdout and r_pruebas.stdout_lines[0].endswith('llega')"
+      - "r_pruebas.stdout_lines[1].endswith('llega')"
+      - "r_pruebas.stdout_lines[2].endswith('bloqueado')"
+      - "r_pruebas.stdout_lines[3].endswith('llega')"
+    success_msg: "{{ r_pruebas.stdout_lines }}"
+    fail_msg: "{{ r_pruebas.stdout_lines }}"

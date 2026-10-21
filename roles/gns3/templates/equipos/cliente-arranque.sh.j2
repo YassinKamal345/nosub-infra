@@ -1,0 +1,17 @@
+#!/bin/sh
+# Gestionado por Ansible (nosub-infra/roles/gns3): {{ nombre }} en el ensayo de GNS3 ({{ r.papel }}).
+# Lo mismo que network/generado/{{ nombre }}.cfg (Cisco): router de casa con NAT, DHCP y OSPF.
+#   eth0 = {{ r.puerto_proveedor }} ("Internet", VLAN {{ vlan_proveedor.id }} en SW1) · eth1 = {{ r.puerto_lan }} (red del cliente)
+set -e
+for i in eth0 eth1; do ip link set $i up; done
+ip addr add {{ r.ip_proveedor }} dev eth0
+ip addr add {{ r.lan | ansible.utils.ipaddr('1') }} dev eth1
+sysctl -w net.ipv4.ip_forward=1 >/dev/null
+# NAT: la red del cliente sale con la IP del router (no se anuncia en OSPF, como en una casa de verdad)
+iptables -t nat -A POSTROUTING -o eth0 -s {{ r.lan }} -j MASQUERADE
+# DHCP de la red del cliente (como un router de casa)
+mkdir -p /var/lib/udhcpd && touch /var/lib/udhcpd/udhcpd.leases
+udhcpd /etc/nosub/udhcpd.conf
+cp /etc/nosub/frr.conf /etc/frr/frr.conf
+sed -i 's/^ospfd=no/ospfd=yes/' /etc/frr/daemons
+exec /usr/lib/frr/docker-start

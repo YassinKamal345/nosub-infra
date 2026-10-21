@@ -1,0 +1,10 @@
+#!/bin/sh
+# Gestionado por Ansible (nosub-infra/roles/gns3): {{ nombre }} en el ensayo de GNS3 ({{ descripcion }}).
+ip link set eth0 up
+{% if item.ip is defined %}
+ip addr add {{ item.ip }} dev eth0
+ip route add default via {{ item.puerta }}
+{% else %}
+udhcpc -i eth0 -b -S
+{% endif %}
+exec sleep infinity

@@ -30,6 +30,10 @@ contenedores:
 # Salen de la imagen "cloud" oficial de su distribución y se configuran con cloud-init.
 maquinas_virtuales:
   - { vmid: 231, nombre: k3s, vlan: 30, ip: 10.10.30.20, so: ubuntu, nucleos: 2, ram: 3072, disco: 30, descripcion: "k3s: hosting de proyectos DAM/DAW" }
+  # GNS3: ensayo de la red física. Se enciende cuando hace falta (no arranca sola con Proxmox).
+  # Segunda tarjeta en la VLAN 50 (invitados): hace de "red del centro" de R1 dentro de GNS3 (nodo Cloud)
+  - { vmid: 210, nombre: gns3, vlan: 10, ip: 10.10.10.20, so: ubuntu, nucleos: 2, ram: 3072, disco: 30, al_arrancar: false,
+      redes_extra: [{ puente: vmbr1, vlan: 50 }], descripcion: "GNS3: ensayo de la red física (routers R1-R3 y SW1)" }
 
 # Solo en el laboratorio (prx): nombres de la página de inicio personal (Caddy en el CT 103, a través
 # del puente prx-sede-*). En la centralita se quitan o se cambian por los de Bind9.

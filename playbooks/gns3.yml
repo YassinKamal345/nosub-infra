@@ -1,0 +1,18 @@
+# Ensayo de la red física en GNS3 (fase 4): enciende la VM gns3 (a demanda), monta GNS3 y la topología
+# R1-R3 + SW1 con los datos de red_fisica.yml, y comprueba OSPF, NAT, DHCP y el aislamiento entre clientes.
+#   ansible-playbook playbooks/gns3.yml
+# Para apagarla al terminar (libera 3 GB de RAM):  qm shutdown 210
+- name: Encender la VM de GNS3 (se crea con sede.yml, pero no arranca sola)
+  hosts: proxmox
+  gather_facts: true
+  tasks:
+    - name: Crear (si falta) y encender la VM
+      ansible.builtin.include_role: { name: proxmox_vms, tasks_from: vms }
+      vars: { vms_encender: [gns3] }
+
+- name: GNS3 y el ensayo de la red física
+  hosts: gns3
+  gather_facts: true
+  roles:
+    - gns3
+    - node_exporter

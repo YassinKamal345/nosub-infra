@@ -1,0 +1,9 @@
+# Gestionado por Ansible (nosub-infra/roles/gns3): DHCP de la red del cliente de {{ nombre }}
+interface eth1
+start {{ r.lan | ansible.utils.ipaddr('10') | ansible.utils.ipaddr('address') }}
+end {{ r.lan | ansible.utils.ipaddr('200') | ansible.utils.ipaddr('address') }}
+option subnet {{ r.lan | ansible.utils.ipaddr('netmask') }}
+option router {{ r.lan | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}
+option dns {{ dns_clientes | join(' ') }}
+option lease 3600
+lease_file /var/lib/udhcpd/udhcpd.leases

@@ -1,0 +1,160 @@
+# ---------- 1. GNS3 y Docker ----------
+- name: Repositorio oficial de GNS3 (PPA)
+  ansible.builtin.apt_repository: { repo: "ppa:gns3/ppa", codename: noble }
+
+- name: Paquetes (GNS3 {{ gns3_version }}, ubridge para unir los equipos, Dynamips para el switch, Docker para los routers)
+  ansible.builtin.apt:
+    name: ["gns3-server={{ gns3_version }}~noble1", ubridge, dynamips, docker.io, nftables]   # dynamips: lo usa el switch integrado
+    install_recommends: false
+    update_cache: true
+  environment: { DEBIAN_FRONTEND: noninteractive }
+  register: r_apt
+  until: r_apt is succeeded        # el repositorio de Launchpad a veces da 503: se reintenta
+  retries: 5
+  delay: 20
+
+- name: Usuario gns3 (puede usar Docker y ubridge, que une los equipos entre sí)
+  ansible.builtin.user: { name: gns3, groups: [docker, ubridge], append: true, shell: /usr/sbin/nologin, create_home: true }
+  notify: Reiniciar GNS3   # los grupos nuevos solo cuentan al volver a arrancar
+
+- name: Arrancar Docker y que arranque solo
+  ansible.builtin.systemd: { name: docker, state: started, enabled: true }
+
+# ---------- 2. Servidor GNS3 ----------
+- name: Contraseña de la web de GNS3 (se crea aquí; solo la lee root)
+  ansible.builtin.shell: |
+    [ -s {{ gns3_clave_fichero }} ] && exit 0
+    umask 077; python3 -c 'import secrets;print(secrets.token_urlsafe(15))' > {{ gns3_clave_fichero }} && echo CAMBIO
+  register: r_clave
+  changed_when: "'CAMBIO' in r_clave.stdout"
+
+- name: Leer la contraseña
+  ansible.builtin.slurp: { src: "{{ gns3_clave_fichero }}" }
+  register: r_clave_leida
+  no_log: true
+
+- name: Guardarla para la configuración
+  ansible.builtin.set_fact: { gns3_clave: "{{ r_clave_leida.content | b64decode | trim }}" }
+  no_log: true
+
+- name: Carpetas de GNS3
+  ansible.builtin.file: { path: "{{ item }}", state: directory, owner: gns3, group: gns3, mode: "0750" }
+  loop: [/home/gns3/.config/GNS3/2.2, /home/gns3/GNS3/images, /home/gns3/GNS3/projects]
+
+- name: Configuración del servidor
+  ansible.builtin.template: { src: gns3_server.conf.j2, dest: /home/gns3/.config/GNS3/2.2/gns3_server.conf, owner: gns3, group: gns3, mode: "0600" }
+  notify: Reiniciar GNS3
+
+- name: Servicio
+  ansible.builtin.template: { src: gns3.service.j2, dest: /etc/systemd/system/gns3.service, mode: "0644" }
+  notify: Reiniciar GNS3
+
+- name: Arrancar GNS3 y que arranque solo
+  ansible.builtin.systemd: { name: gns3, state: started, enabled: true, daemon_reload: true }
+
+# ---------- 3. Red y cortafuegos de la VM ----------
+- name: Tarjeta de la "red del centro" encendida y sin IP (la usa el nodo Cloud de GNS3)
+  ansible.builtin.copy:
+    dest: "/etc/systemd/network/20-nosub-{{ gns3_tarjeta_centro }}.network"
+    content: |
+      # Gestionado por Ansible (nosub-infra/roles/gns3): la VM no usa esta tarjeta; la usa R1 dentro de GNS3
+      [Match]
+      Name={{ gns3_tarjeta_centro }}
+
+      [Network]
+      LinkLocalAddressing=no
+      IPv6AcceptRA=no
+      ConfigureWithoutCarrier=yes
+    mode: "0644"
+  notify: Recargar la red
+
+- name: Cortafuegos de la VM
+  ansible.builtin.template: { src: nftables.conf.j2, dest: /etc/nftables.conf, mode: "0755", validate: "nft -c -f %s" }
+  notify: Aplicar el cortafuegos
+
+- name: Activar el cortafuegos y que arranque solo
+  ansible.builtin.systemd: { name: nftables, state: started, enabled: true }
+
+- name: Comprobar que el cortafuegos está cargado (por si se perdió una recarga)
+  ansible.builtin.shell: nft list table inet nosub >/dev/null 2>&1 || { nft -f /etc/nftables.conf && echo CAMBIO; }
+  register: r_nft
+  changed_when: "'CAMBIO' in r_nft.stdout"
+
+- name: Aplicar ya los cambios pendientes
+  ansible.builtin.meta: flush_handlers
+
+# ---------- 4. Imágenes de los equipos ----------
+- name: Carpetas del ensayo
+  ansible.builtin.file: { path: "{{ gns3_dir }}/{{ item }}", state: directory, mode: "0755" }
+  loop: [imagen-frr, equipos]
+
+- name: Imagen de los routers (FRRouting + iptables + udhcpd)
+  ansible.builtin.template: { src: Dockerfile.frr.j2, dest: "{{ gns3_dir }}/imagen-frr/Dockerfile", mode: "0644" }
+  register: r_dockerfile
+
+- name: Construirla (si falta o ha cambiado)
+  ansible.builtin.shell: |
+    docker image inspect {{ gns3_imagen_frr }} >/dev/null 2>&1 && [ "{{ r_dockerfile is changed }}" = False ] && exit 0
+    docker build -q -t {{ gns3_imagen_frr }} {{ gns3_dir }}/imagen-frr && echo CAMBIO
+  register: r_build
+  changed_when: "'CAMBIO' in r_build.stdout"
+
+- name: Imagen de los equipos sencillos (Alpine)
+  ansible.builtin.shell: docker image inspect {{ gns3_imagen_equipo }} >/dev/null 2>&1 || { docker pull -q {{ gns3_imagen_equipo }} && echo CAMBIO; }
+  register: r_pull
+  changed_when: "'CAMBIO' in r_pull.stdout"
+
+# ---------- 5. Ficheros de cada equipo (salen de red_fisica.yml, como los de los equipos reales) ----------
+- name: Carpeta de cada equipo
+  ansible.builtin.file: { path: "{{ gns3_dir }}/equipos/{{ item }}", state: directory, mode: "0755" }
+  loop: [R1, R2, R3, Sede-WAN, Caja-A, Caja-B]
+
+- name: R1 (borde de la sede)
+  vars: { nombre: R1, r: "{{ routers.R1 }}" }
+  ansible.builtin.template: { src: "equipos/R1-{{ item }}.j2", dest: "{{ gns3_dir }}/equipos/R1/{{ item }}", mode: "0644" }
+  loop: [arranque.sh, frr.conf]
+
+- name: R2 y R3 (routers de los clientes)
+  vars: { nombre: "{{ item.0 }}", r: "{{ routers[item.0] }}" }
+  ansible.builtin.template: { src: "equipos/cliente-{{ item.1 }}.j2", dest: "{{ gns3_dir }}/equipos/{{ item.0 }}/{{ item.1 }}", mode: "0644" }
+  loop: "{{ ['R2', 'R3'] | product(['arranque.sh', 'frr.conf', 'udhcpd.conf']) | list }}"
+
+- name: Equipos sencillos (la WAN de la sede y una caja en cada cliente)
+  vars:
+    nombre: "{{ item.nombre }}"
+    descripcion: "{{ item.descripcion }}"
+  ansible.builtin.template: { src: equipos/equipo-arranque.sh.j2, dest: "{{ gns3_dir }}/equipos/{{ item.nombre }}/arranque.sh", mode: "0644" }
+  loop:
+    - { nombre: Sede-WAN, descripcion: "WAN de OPNsense, como en la VLAN 99 del centro",
+        ip: "{{ vlan_enlace_r1.red | ansible.utils.ipaddr('2') }}", puerta: "{{ routers.R1.ip_enlace | ansible.utils.ipaddr('address') }}" }
+    - { nombre: Caja-A, descripcion: "caja en casa del cliente A (IP por DHCP de R2)" }
+    - { nombre: Caja-B, descripcion: "caja en la oficina del cliente B (IP por DHCP de R3)" }
+  loop_control: { label: "{{ item.nombre }}" }
+
+# ---------- 6. Topología ----------
+- name: Descripción de la topología
+  ansible.builtin.template: { src: topologia.json.j2, dest: "{{ gns3_dir }}/topologia.json", mode: "0644" }
+
+- name: Script que la monta por la API de GNS3
+  ansible.builtin.copy: { src: gns3-topologia.py, dest: /usr/local/sbin/nosub-gns3-topologia, mode: "0755" }
+
+- name: Esperar a la API de GNS3
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ gns3_puerto }}/v2/version"
+    url_username: "{{ gns3_usuario_web }}"
+    url_password: "{{ gns3_clave }}"
+    force_basic_auth: true
+  register: r_api
+  until: r_api.status == 200
+  retries: 30
+  delay: 2
+
+- name: Montar (o arrancar) el ensayo en GNS3
+  ansible.builtin.command: /usr/local/sbin/nosub-gns3-topologia {{ gns3_dir }}/topologia.json
+  environment: { GNS3_USUARIO: "{{ gns3_usuario_web }}", GNS3_CLAVE: "{{ gns3_clave }}" }
+  register: r_topologia
+  changed_when: "'CAMBIADO' in r_topologia.stdout"
+
+# ---------- 7. Pruebas del ensayo ----------
+- name: Pruebas
+  ansible.builtin.include_tasks: pruebas.yml

@@ -1,0 +1,11 @@
+; Gestionado por Ansible (nosub-infra/roles/gns3)
+[Server]
+host = 0.0.0.0
+port = {{ gns3_puerto }}
+images_path = /home/gns3/GNS3/images
+projects_path = /home/gns3/GNS3/projects
+ubridge_path = /usr/bin/ubridge
+report_errors = False
+auth = True
+user = {{ gns3_usuario_web }}
+password = {{ gns3_clave }}

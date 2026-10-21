@@ -1,0 +1,11 @@
+- name: Reiniciar el enlace
+  ansible.builtin.systemd: { name: "wg-quick@{{ cloud_wg_if }}", state: restarted }
+
+- name: Aplicar el cortafuegos
+  ansible.builtin.systemd: { name: nftables, state: reloaded }
+
+- name: Reiniciar rest-server
+  ansible.builtin.systemd: { name: rest-server, state: restarted, daemon_reload: true }
+
+- name: Reiniciar la página de estado
+  ansible.builtin.command: docker compose -f {{ cloud_dir }}/compose.yml restart

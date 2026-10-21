@@ -78,6 +78,10 @@ opnsense_reglas:
   - { interface: opt6, action: block, source_net: cajas, descripcion: "VPN: las cajas no inician conexiones" }
   - { interface: opt6, source_net: opt6, destination_net: opt1, descripcion: "VPN: a servidores" }
   - { interface: opt6, source_net: opt6, destination_net: opt2, descripcion: "VPN: a la DMZ" }
+  # CLOUD (opt7 = enlace con el VPS): la entrada de la VPN reenviada por el VPS y lo que comprueba la página de estado
+  - { interface: opt7, protocol: UDP, destination_net: "(self)", destination_port: "{{ opnsense_wg_puerto }}", descripcion: "Cloud: entrada de la VPN reenviada por el VPS" }
+  - { interface: opt7, protocol: ICMP, source_net: "{{ cloud_enlace_ip_vps }}", destination_net: "(self)", descripcion: "Cloud: la pagina de estado comprueba el enlace" }
+  - { interface: opt7, protocol: TCP, source_net: "{{ cloud_enlace_ip_vps }}", destination_net: "{{ ip_extranet }}", destination_port: "443", descripcion: "Cloud: la pagina de estado comprueba el portal" }
 
 # DHCP: OPNsense no reparte IPs; pasa las peticiones de estas VLANs (relay) a Kea, en el CT red-int.
 opnsense_dhcp_servidor: "{{ ip_red_int }}"
@@ -87,7 +91,7 @@ opnsense_dhcp_vlans: "{{ dhcp_vlans | map(attribute='vlan') | list }}"
 opnsense_wg_puerto: 51820
 opnsense_wg_red: 10.99.0.0/24
 opnsense_wg_ip_servidor: 10.99.0.1/24
-opnsense_wg_endpoint: "{{ opnsense_wan_ip }}"   # dirección por la que llegan los usuarios (en la sede real, la IP pública)
+opnsense_wg_endpoint: "{{ vpn_sede_endpoint }}"   # por dónde llegan los usuarios: la WAN o el VPS (vpn_entrada)
 opnsense_wg_usuarios:
   - { nombre: teletrabajo-prueba, ip: 10.99.0.10 }
 # Cajas de los clientes (inventories/cajas): su clave pública la deja caja_nueva.yml en inventories/cajas/wireguard/<caja>.pub.
@@ -99,4 +103,16 @@ opnsense_wg_cajas: >-
   {%- if f is file -%}{%- set _ = l.append({'nombre': h, 'ip': hostvars[h].ip_vpn, 'publica': lookup('ansible.builtin.file', f) | trim}) -%}{%- endif -%}
   {%- endfor -%}
   {{ l }}
+# Enlace con el VPS del cloud (rol cloud): lo abre OPNsense (instancia wg1, interfaz CLOUD = opt7).
+# Solo existe cuando el VPS ya ha dejado su clave pública en inventories/sede/cloud/vps.pub.
+# La clave de OPNsense para el enlace se deriva de la del servidor (no hay que guardar otro secreto).
+opnsense_wg_enlaces: >-
+  {%- set f = playbook_dir ~ '/../inventories/sede/cloud/vps.pub' -%}
+  {%- if groups['cloud'] | default([]) | length > 0 and f is file -%}
+  {{ [{'nombre': 'cloud', 'clave': 'enlace-cloud', 'instancia': '1', 'interfaz': 'opt7', 'descr': 'CLOUD',
+       'ip': cloud_enlace_ip_sede ~ '/' ~ (cloud_enlace_red | ansible.utils.ipaddr('prefix')), 'puerto': '51822',
+       'remoto': {'nombre': 'vps', 'publica': lookup('ansible.builtin.file', f) | trim, 'endpoint': cloud_ip_publica,
+                  'puerto': cloud_enlace_puerto | string, 'permitidas': cloud_enlace_ip_vps ~ '/32'}}] }}
+  {%- else -%}[]{%- endif -%}
+opnsense_wg_claves_enlaces: "{{ {'enlace-cloud': vault_wg_privadas['servidor'] | wg_derivar('enlace-cloud')} }}"
 opnsense_wg_carpeta_confs: /root/nosub-wireguard   # .conf de cada usuario (fuera del repositorio: llevan su clave privada)

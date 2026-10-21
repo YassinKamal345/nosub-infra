@@ -41,3 +41,16 @@ iface {{ c.puente }} inet static
 	post-down iptables -t nat -D POSTROUTING -s {{ c.red }} -o {{ interfaz_salida }} -j MASQUERADE -m comment --comment nosub-lab
 #Casa simulada del cliente de {{ c.caja }} (router de casa = Proxmox)
 {% endfor %}
+{% if cloud_laboratorio | default(false) %}
+
+auto {{ internet_lab_puente }}
+iface {{ internet_lab_puente }} inet static
+	address {{ internet_lab_red | ansible.utils.ipaddr('1') }}
+	bridge-ports none
+	bridge-stp off
+	bridge-fd 0
+	post-up   {{ casas_script_cortafuegos }}
+	post-up   iptables -t nat -C POSTROUTING -s {{ internet_lab_red }} -o {{ interfaz_salida }} -j MASQUERADE -m comment --comment nosub-lab 2>/dev/null || iptables -t nat -A POSTROUTING -s {{ internet_lab_red }} -o {{ interfaz_salida }} -j MASQUERADE -m comment --comment nosub-lab
+	post-down iptables -t nat -D POSTROUTING -s {{ internet_lab_red }} -o {{ interfaz_salida }} -j MASQUERADE -m comment --comment nosub-lab
+#Internet simulado: VPS de prueba del cloud
+{% endif %}

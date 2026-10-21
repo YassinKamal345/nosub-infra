@@ -286,6 +286,35 @@ def aplicar_wireguard(raiz, wg):
     quitar(ifs, wg["interfaz"])
     i = ET.SubElement(ifs, wg["interfaz"])
     rellenar(i, {"enable": "1", "if": "wg0", "descr": "VPN", "spoofmac": None})
+    for en in wg.get("enlaces", []):
+        aplicar_enlace(raiz, base, en, privadas[en["clave"]])
+
+
+def aplicar_enlace(raiz, base, en, privada):
+    """Enlace que abre la sede hacia un equipo remoto (p. ej. el VPS del cloud): otra instancia con un solo peer."""
+    r = en["remoto"]
+    clientes = base.find("client/clients")
+    for c in list(clientes):
+        if c.findtext("name") == r["nombre"]:
+            clientes.remove(c)
+    u = uid("wg-remoto", r["nombre"])
+    e = ET.SubElement(clientes, "client", uuid=u)
+    rellenar(e, {"enabled": "1", "name": r["nombre"], "pubkey": r["publica"], "psk": None,
+                 "tunneladdress": r["permitidas"], "serveraddress": r["endpoint"], "serverport": r["puerto"],
+                 "keepalive": "25"})
+    servidores = base.find("server/servers")
+    for sv in list(servidores):
+        if sv.findtext("name") == en["nombre"]:
+            servidores.remove(sv)
+    e = ET.SubElement(servidores, "server", uuid=uid("wg-servidor", en["nombre"]))
+    rellenar(e, {"enabled": "1", "name": en["nombre"], "instance": en["instancia"], "pubkey": clave_publica(privada),
+                 "privkey": privada, "port": en["puerto"], "mtu": None, "dns": None,
+                 "tunneladdress": en["ip"], "disableroutes": "0", "gateway": None, "carp_depend_on": None,
+                 "peers": u, "debug": "0", "endpoint": None, "peer_dns": None})
+    ifs = raiz.find("interfaces")
+    quitar(ifs, en["interfaz"])
+    i = ET.SubElement(ifs, en["interfaz"])
+    rellenar(i, {"enable": "1", "if": "wg" + en["instancia"], "descr": en["descr"], "spoofmac": None})
 
 
 def aplicar_relay(raiz, rel):

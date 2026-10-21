@@ -1,0 +1,20 @@
+# Gestionado por Ansible (nosub-infra/roles/cloud): página de estado de NoSub.
+# Con la red del VPS (host): Gatus llega a la sede por el enlace y Caddy publica HTTPS.
+name: estado
+services:
+  gatus:
+    image: {{ cloud_gatus_imagen }}
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      GATUS_CONFIG_PATH: /config/config.yaml
+      SSL_CERT_FILE: /config/nosub-ca.crt            # las webs de la sede llevan certificados de NoSub CA
+    extra_hosts: ["portal.{{ dominio_interno }}:{{ ip_extranet }}"]
+    volumes: ["{{ cloud_dir }}/gatus:/config:ro", "{{ cloud_dir }}/datos:/data"]
+    mem_limit: 128m
+  caddy:
+    image: {{ cloud_caddy_imagen }}
+    restart: unless-stopped
+    network_mode: host
+    volumes: ["{{ cloud_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro", "{{ cloud_dir }}/caddy:/data"]
+    mem_limit: 128m

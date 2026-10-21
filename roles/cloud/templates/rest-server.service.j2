@@ -1,0 +1,19 @@
+# Gestionado por Ansible (nosub-infra/roles/cloud)
+[Unit]
+Description=rest-server: copias externas de la sede NoSub (restic, solo añadir)
+After=wg-quick@{{ cloud_wg_if }}.service
+Requires=wg-quick@{{ cloud_wg_if }}.service
+
+[Service]
+User=copias
+Group=copias
+ExecStart=/usr/local/bin/rest-server --path {{ cloud_copias_dir }} --listen {{ cloud_enlace_ip_vps }}:{{ cloud_restserver_puerto }} --append-only --no-auth --prometheus --prometheus-no-auth
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ cloud_copias_dir }}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

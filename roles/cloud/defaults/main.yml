@@ -1,0 +1,27 @@
+# VPS del cloud (Ubuntu 24.04, Oracle Cloud Free Tier; ARM o AMD): enlace con la sede, entrada de la VPN,
+# página de estado (Gatus + Caddy) y destino de las copias externas (rest-server).
+cloud_dir: /opt/nosub-cloud
+
+# Enlace con la sede (WireGuard). La clave privada del VPS se crea aquí y no sale de él; la pública se guarda
+# en el repositorio (inventories/sede/cloud/vps.pub) para que OPNsense abra el enlace.
+cloud_wg_if: wgsede
+cloud_wg_clave: /etc/wireguard/sede.key
+cloud_wg_publica_repo: "{{ playbook_dir }}/../inventories/sede/cloud/vps.pub"
+# Clave pública del lado de la sede: OPNsense la deriva de la del Vault (ver plugins/filter/wireguard.py)
+cloud_wg_publica_sede: "{{ vault_wg_privadas['servidor'] | wg_derivar('enlace-cloud') | wg_publica }}"
+
+# Página de estado
+cloud_gatus_imagen: docker.io/twinproduction/gatus:v5.37.0
+cloud_caddy_imagen: docker.io/library/caddy:2.11.7-alpine
+cloud_gatus_puerto: 8080              # solo en 127.0.0.1: desde fuera se entra por Caddy (HTTPS)
+
+# Copias externas: rest-server (binario oficial, comprobado con su sha256). Solo escucha en el enlace,
+# en modo "solo añadir": desde la sede se pueden hacer copias, pero no borrarlas.
+cloud_restserver_version: "0.14.0"
+cloud_restserver_sha256:
+  amd64: 4c9c95bc079a0334e81fad379b19dc5c3353c71c2c88d652cafce2081c2b1c66
+  arm64: cef139cbe8b27b16bda731d17f093b0aa466b8c60b136c12d78b6f2bff3daf22
+cloud_restserver_puerto: 8000
+cloud_copias_dir: /srv/copias
+# Máquinas de la sede que pueden mandar copias (grupo copias_externas del inventario)
+cloud_copias_origenes: "{{ groups['copias_externas'] | default([]) | map('extract', hostvars, 'ansible_host') | list }}"

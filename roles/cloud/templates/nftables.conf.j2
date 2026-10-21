@@ -1,0 +1,46 @@
+#!/usr/sbin/nft -f
+# Gestionado por Ansible (nosub-infra/roles/cloud): cortafuegos del VPS. Solo toca sus tablas (Docker tiene las suyas).
+table inet nosub
+delete table inet nosub
+table ip nosub_nat
+delete table ip nosub_nat
+
+table inet nosub {
+  set copias { type ipv4_addr; elements = { {{ (cloud_copias_origenes + ['127.0.0.1']) | join(', ') }} } }
+
+  chain entrada {
+    type filter hook input priority 0; policy drop;
+    iif lo accept
+    ct state established,related accept
+    ct state invalid drop
+    meta l4proto { icmp, ipv6-icmp } accept
+    tcp dport 22 accept                                  # administración (solo con clave)
+    tcp dport { 80, 443 } accept                         # página de estado
+    udp dport {{ cloud_enlace_puerto }} accept           # enlace con la sede
+    iifname "{{ cloud_wg_if }}" ip saddr @copias tcp dport {{ cloud_restserver_puerto }} accept   # copias externas
+    iifname "{{ cloud_wg_if }}" ip saddr {{ ip_monitor }} tcp dport {{ node_exporter_puerto | default(9100) }} accept
+  }
+
+  # Entrada de la VPN: lo que llega al puerto de WireGuard se reenvía a la sede por el enlace. Nada más
+  # cruza el VPS: desde Internet no se llega a la sede, y la sede no sale a Internet por aquí.
+  chain paso {
+    type filter hook forward priority -10; policy accept;
+    ct state established,related accept
+    oifname "{{ cloud_wg_if }}" ip daddr {{ cloud_enlace_ip_sede }} udp dport {{ vpn_sede_puerto }} accept
+    oifname "{{ cloud_wg_if }}" drop
+    iifname "{{ cloud_wg_if }}" drop
+  }
+}
+
+table ip nosub_nat {
+  chain antes {
+    type nat hook prerouting priority dstnat;
+{% if vpn_entrada == 'cloud' %}
+    iifname != "{{ cloud_wg_if }}" udp dport {{ vpn_sede_puerto }} dnat to {{ cloud_enlace_ip_sede }}:{{ vpn_sede_puerto }}
+{% endif %}
+  }
+  chain despues {
+    type nat hook postrouting priority srcnat;
+    oifname "{{ cloud_wg_if }}" ip daddr {{ cloud_enlace_ip_sede }} udp dport {{ vpn_sede_puerto }} masquerade
+  }
+}

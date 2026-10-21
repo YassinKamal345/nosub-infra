@@ -1,0 +1,8 @@
+#!/bin/sh
+# Gestionado por Ansible (nosub-infra/roles/monitorizacion): latido de la sede a la página de estado del cloud.
+# Cada minuto dice "la monitorización de la sede funciona" (o que no). Si deja de llegar, la página lo muestra.
+# Va directo a la IP del VPS: no depende del DNS de la sede.
+. /etc/nosub-latido.env
+curl -fs -m 5 http://127.0.0.1:9090/-/healthy >/dev/null && ok=true || ok=false
+curl -fs -m 10 {{ '-k ' if cloud_laboratorio else '' }}--resolve {{ cloud_nombre_estado }}:443:{{ cloud_ip_publica }} -X POST -H "Authorization: Bearer $CLAVE" \
+  "https://{{ cloud_nombre_estado }}/api/v1/endpoints/{{ latido_clave_gatus | urlencode }}/external?success=$ok" >/dev/null

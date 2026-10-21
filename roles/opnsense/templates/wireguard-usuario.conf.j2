@@ -3,6 +3,9 @@
 [Interface]
 PrivateKey = {{ vault_wg_privadas[item.nombre] }}
 Address = {{ item.ip }}/32
+{% if vpn_entrada == 'cloud' %}
+MTU = {{ vpn_mtu_por_cloud }}
+{% endif %}
 DNS = {{ opnsense_wg_ip_servidor | ansible.utils.ipaddr('address') }}
 
 [Peer]

@@ -1,0 +1,32 @@
+# Gestionado por Ansible (nosub-infra/roles/cloud): qué muestra la página de estado.
+# Está fuera de la sede: si la sede se cae, la página sigue en línea y lo dice.
+web:
+  address: 127.0.0.1
+  port: {{ cloud_gatus_puerto }}
+storage:
+  type: sqlite
+  path: /data/gatus.db
+ui:
+  title: "Estado de {{ empresa }}"
+  header: "Estado de los servicios de {{ empresa }}"
+  description: "Si algo falla, aquí lo verás aunque la sede esté caída."
+
+endpoints:
+  - name: Conexión con la sede
+    group: Sede
+    url: "icmp://{{ cloud_enlace_ip_sede }}"
+    interval: 1m
+    conditions: ["[CONNECTED] == true"]
+  - name: Portal de clientes
+    group: Clientes
+    url: "https://portal.{{ dominio_interno }}/salud"
+    interval: 2m
+    conditions: ["[STATUS] == 200", "[CERTIFICATE_EXPIRATION] > 168h"]
+
+external-endpoints:
+{% for l in cloud_latidos %}
+  - name: {{ l.nombre }}
+    group: {{ l.grupo }}
+    token: "{{ cloud_tokens[l.clave] }}"
+    heartbeat: { interval: {{ l.cada }} }
+{% endfor %}

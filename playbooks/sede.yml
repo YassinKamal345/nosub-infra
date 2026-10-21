@@ -1,9 +1,22 @@
 # Monta o actualiza toda la sede. Cada fase añade aquí sus roles.
-- name: Proxmox de la sede
+- name: Red del laboratorio (y, si es simulado, el VPS del cloud)
   hosts: proxmox
   gather_facts: true
   roles:
     - red_lab
+    - { role: cloud_lab, when: cloud_laboratorio }
+
+# Antes que OPNsense: el VPS deja su clave pública y OPNsense abre el enlace en la misma pasada
+- name: VPS del cloud (página de estado, copias externas, entrada de la VPN)
+  hosts: cloud
+  gather_facts: true
+  roles:
+    - cloud
+
+- name: Proxmox de la sede
+  hosts: proxmox
+  gather_facts: true
+  roles:
     - opnsense
     - proxmox_vms
 
@@ -51,6 +64,14 @@
   gather_facts: false
   roles:
     - node_exporter
+
+- name: Copias externas al cloud (restic, por el enlace)
+  hosts: copias_externas
+  gather_facts: true
+  vars:
+    copias_clave_latido: "{{ hostvars[groups['cloud'][0]].cloud_tokens.copias }}"
+  roles:
+    - { role: copias_externas, when: vault_copias is defined }
 
 - name: Monitorización (Prometheus y Grafana)
   hosts: monitor

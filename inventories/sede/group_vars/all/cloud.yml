@@ -1,0 +1,20 @@
+# VPS en el cloud (rol cloud): página de estado, copias externas y entrada de la VPN.
+# true = VPS simulado en prx, "en Internet" (rol cloud_lab); false = el VPS de verdad (Oracle Cloud Free Tier)
+cloud_laboratorio: true
+cloud_ip_publica: 203.0.113.10          # laboratorio (red de documentación 203.0.113.0/24); en Oracle, su IP pública
+# Enlace sede <-> VPS: lo abre la sede (OPNsense) hacia el VPS, así la sede no necesita IP pública
+cloud_enlace_red: 10.98.0.0/30
+cloud_enlace_ip_vps: 10.98.0.1
+cloud_enlace_ip_sede: 10.98.0.2
+cloud_enlace_puerto: 51821              # en el VPS
+# Por dónde entran las cajas y el teletrabajo a la VPN: "sede" (WAN de OPNsense) o "cloud" (el VPS lo reenvía a la sede)
+vpn_entrada: cloud
+# Por el cloud, el túnel de la caja viaja dentro del enlace: paquetes algo más pequeños para que quepan sin trocearse
+vpn_mtu_por_cloud: 1340
+ip_wan_sede: 172.31.255.2               # WAN de OPNsense (en la sede real, su IP pública)
+# Nombre público de la página de estado (sslip.io convierte el nombre en la IP; así hay certificado sin comprar dominio)
+cloud_nombre_estado: "estado.{{ cloud_ip_publica | replace('.', '-') }}.sslip.io"
+# Avisos que llegan a la página de estado (latidos). Sus claves las crea el VPS y Ansible las lleva a quien avisa.
+cloud_latidos:
+  - { clave: monitorizacion, nombre: "Latido de la sede", grupo: Sede, cada: 5m }   # sin tildes: Gatus no las admite en la dirección del aviso
+  - { clave: copias, nombre: "Copias externas", grupo: Copias, cada: 26h }

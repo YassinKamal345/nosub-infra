@@ -1,0 +1,8 @@
+# Solo laboratorio: un contenedor Ubuntu en el "Internet" simulado (red_lab) que hace de VPS de Oracle.
+cloud_lab_vmid: 290
+cloud_lab_plantilla: ubuntu-24.04-standard_24.04-2_amd64.tar.zst
+cloud_lab_almacen: local-lvm
+cloud_lab_recursos: { nucleos: 1, ram: 1024, disco: 10 }
+cloud_lab_dns: 9.9.9.9
+cloud_lab_clave_ssh: /root/.ssh/nosub_ansible.pub
+cloud_lab_zona_horaria: Europe/Madrid

@@ -1,0 +1,44 @@
+# Crea (si falta) el contenedor que hace de VPS del cloud en el laboratorio
+- name: ¿Existe ya el VPS de prueba?
+  ansible.builtin.stat: { path: "/etc/pve/lxc/{{ cloud_lab_vmid }}.conf" }
+  register: vps_conf
+
+- name: Crear el VPS de prueba (Ubuntu, como el de Oracle)
+  when: not vps_conf.stat.exists
+  # Con pct (como root): Docker dentro de un contenedor necesita la opción keyctl
+  ansible.builtin.command: >-
+    pct create {{ cloud_lab_vmid }} local:vztmpl/{{ cloud_lab_plantilla }}
+    --hostname vps --cores {{ cloud_lab_recursos.nucleos }} --memory {{ cloud_lab_recursos.ram }} --swap 512
+    --rootfs {{ cloud_lab_almacen }}:{{ cloud_lab_recursos.disco }}
+    --net0 name=eth0,bridge={{ internet_lab_puente }},ip={{ cloud_ip_publica }}/{{ internet_lab_red | ansible.utils.ipaddr('prefix') }},gw={{ internet_lab_red | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}
+    --nameserver {{ cloud_lab_dns }} --searchdomain lan
+    --ssh-public-keys {{ cloud_lab_clave_ssh }} --timezone {{ cloud_lab_zona_horaria }}
+    --unprivileged 1 --features nesting=1,keyctl=1 --onboot 1 --tags "cloud;laboratorio"
+    --description "VPS del cloud simulado (laboratorio; en la realidad, Oracle Cloud). Gestionado por Ansible: nosub-infra/roles/cloud_lab"
+  changed_when: true
+
+- name: Encenderlo
+  ansible.builtin.shell: pct status {{ cloud_lab_vmid }} | grep -q running || { pct start {{ cloud_lab_vmid }} && echo CAMBIO; }
+  register: r_arranque
+  changed_when: "'CAMBIO' in r_arranque.stdout"
+
+- name: Servidor SSH (por si la plantilla no lo trae)
+  ansible.builtin.shell: |
+    pct exec {{ cloud_lab_vmid }} -- sh -c 'command -v sshd >/dev/null' && exit 0
+    pct exec {{ cloud_lab_vmid }} -- sh -c 'apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openssh-server' && echo CAMBIO
+  register: r_sshd
+  changed_when: "'CAMBIO' in r_sshd.stdout"
+
+- name: Esperar a que responda por SSH
+  ansible.builtin.wait_for: { host: "{{ cloud_ip_publica }}", port: 22, timeout: 120 }
+
+- name: Leer su clave SSH (desde dentro, no por la red)
+  ansible.builtin.command: pct exec {{ cloud_lab_vmid }} -- cat /etc/ssh/ssh_host_ed25519_key.pub
+  register: clave_host
+  changed_when: false
+
+- name: Apuntarla en known_hosts
+  ansible.builtin.known_hosts:
+    path: /root/.ssh/known_hosts
+    name: "{{ cloud_ip_publica }}"
+    key: "{{ cloud_ip_publica }} {{ clave_host.stdout.split()[:2] | join(' ') }}"

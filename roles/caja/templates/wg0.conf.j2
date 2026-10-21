@@ -5,6 +5,9 @@
 [Interface]
 Address = {{ ip_vpn }}/32
 Table = off
+{% if vpn_entrada == 'cloud' %}
+MTU = {{ vpn_mtu_por_cloud }}
+{% endif %}
 PostUp = wg set %i private-key {{ caja_wg_clave }}
 PostUp = ip -4 rule add from {{ ip_vpn }} lookup {{ caja_wg_tabla }} priority 100
 {% for ip in cajas_soporte %}

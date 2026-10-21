@@ -1,8 +1,8 @@
 # Cajas de los clientes: lo que la sede necesita saber de ellas (la lista está en inventories/cajas/hosts.yml).
 # Las cajas usan la parte alta de la VPN; la parte baja es para el teletrabajo.
 red_vpn_cajas: 10.99.0.128/25
-# Dónde encuentran las cajas a la sede: en el laboratorio, la WAN de OPNsense; en la sede real, su IP pública
-vpn_sede_endpoint: 172.31.255.2
+# Dónde encuentran las cajas a la sede: la WAN de OPNsense o el VPS del cloud (vpn_entrada, en cloud.yml)
+vpn_sede_endpoint: "{{ cloud_ip_publica if vpn_entrada == 'cloud' else ip_wan_sede }}"
 vpn_sede_puerto: 51820
 # Únicas máquinas de la sede que pueden entrar en una caja (por la VPN):
 # el nodo de control de Ansible (hoy prx; más adelante gitea) y la monitorización

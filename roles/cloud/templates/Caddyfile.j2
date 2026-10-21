@@ -1,0 +1,7 @@
+# Gestionado por Ansible (nosub-infra/roles/cloud): página de estado por HTTPS
+{{ cloud_nombre_estado }} {
+{% if cloud_laboratorio %}
+	tls internal        # laboratorio: sin Internet de verdad no hay Let's Encrypt (certificado de Caddy)
+{% endif %}
+	reverse_proxy 127.0.0.1:{{ cloud_gatus_puerto }}
+}

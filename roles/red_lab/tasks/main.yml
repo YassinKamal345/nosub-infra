@@ -10,7 +10,7 @@
   register: r_casas_fw
 
 - name: Aplicarlo ya (también se aplica solo al levantar cada casa)
-  when: r_casas_fw is changed and casas_lab | length > 0
+  when: r_casas_fw is changed and (casas_lab | length > 0 or cloud_laboratorio | default(false))
   ansible.builtin.command: "{{ casas_script_cortafuegos }}"
   changed_when: true
 

@@ -30,5 +30,5 @@
                  "interfaces": opnsense_dhcp_vlans | map('extract', opnsense_claves_vlan) | list},
   "wireguard": {"nombre": "sede", "interfaz": "opt6", "puerto": opnsense_wg_puerto | string,
                 "ip_servidor": opnsense_wg_ip_servidor, "usuarios": opnsense_wg_usuarios,
-                "cajas": opnsense_wg_cajas}
+                "cajas": opnsense_wg_cajas, "enlaces": opnsense_wg_enlaces}
 } | to_nice_json }}

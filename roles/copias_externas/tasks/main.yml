@@ -1,0 +1,54 @@
+- name: Descargar restic {{ copias_restic_version }} (comprobando su sha256)
+  ansible.builtin.get_url:
+    url: "https://github.com/restic/restic/releases/download/v{{ copias_restic_version }}/restic_{{ copias_restic_version }}_linux_amd64.bz2"
+    dest: "/root/restic_{{ copias_restic_version }}.bz2"
+    checksum: "sha256:{{ copias_restic_sha256 }}"
+    mode: "0644"
+
+- name: Instalar el binario
+  ansible.builtin.shell: |
+    bzip2 -dc /root/restic_{{ copias_restic_version }}.bz2 > /usr/local/bin/restic.nuevo
+    chmod 0755 /usr/local/bin/restic.nuevo && mv /usr/local/bin/restic.nuevo /usr/local/bin/restic
+    touch /usr/local/lib/.restic-{{ copias_restic_version }}
+  args: { creates: "/usr/local/lib/.restic-{{ copias_restic_version }}" }
+
+- name: curl y bzip2 (para el aviso y para descomprimir)
+  ansible.builtin.package: { name: [curl, bzip2] }
+
+- name: Carpeta de restic
+  ansible.builtin.file: { path: /etc/restic, state: directory, mode: "0700" }
+
+- name: Dónde y con qué clave (solo lo lee root)
+  ansible.builtin.copy:
+    dest: /etc/restic/entorno
+    mode: "0600"
+    content: |
+      export RESTIC_REPOSITORY='{{ copias_repositorio }}'
+      export RESTIC_PASSWORD='{{ vault_copias.clave }}'
+      export RESTIC_CACHE_DIR=/var/cache/restic
+      export LATIDO='{{ copias_clave_latido | default('') }}'
+  no_log: true
+
+- name: Crear el repositorio en el cloud (solo la primera vez)
+  ansible.builtin.shell: |
+    . /etc/restic/entorno
+    restic cat config >/dev/null 2>&1 && exit 0
+    restic init && echo CAMBIO
+  register: r_init
+  changed_when: "'CAMBIO' in r_init.stdout"
+
+- name: Script de la copia
+  ansible.builtin.template: { src: copia-externa.sh.j2, dest: /usr/local/sbin/nosub-copia-externa, mode: "0700" }
+
+- name: Servicio y temporizador (cada noche a las {{ copias_hora }})
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.f }}"
+    mode: "0644"
+    content: "{{ item.c }}"
+  loop:
+    - { f: nosub-copia-externa.service, c: "# Gestionado por Ansible (nosub-infra/roles/copias_externas)\n[Unit]\nDescription=Copia externa al cloud (restic)\n\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/nosub-copia-externa\nNice=10\nIOSchedulingClass=idle\n" }
+    - { f: nosub-copia-externa.timer, c: "# Gestionado por Ansible (nosub-infra/roles/copias_externas)\n[Unit]\nDescription=Copia externa al cloud cada noche\n\n[Timer]\nOnCalendar=*-*-* {{ copias_hora }}\nRandomizedDelaySec=15min\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n" }
+  loop_control: { label: "{{ item.f }}" }
+
+- name: Activar el temporizador
+  ansible.builtin.systemd: { name: nosub-copia-externa.timer, state: started, enabled: true, daemon_reload: true }

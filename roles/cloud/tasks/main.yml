@@ -1,0 +1,200 @@
+# ---------- 1. Paquetes ----------
+- name: Paquetes (WireGuard, cortafuegos y Docker de Ubuntu)
+  ansible.builtin.apt:
+    name: [wireguard-tools, nftables, docker.io, docker-compose-v2, curl]
+    install_recommends: false
+    update_cache: true
+    cache_valid_time: 86400
+
+- name: Reenvío de paquetes (entrada de la VPN hacia la sede)
+  ansible.builtin.copy: { dest: /etc/sysctl.d/90-nosub-cloud.conf, content: "net.ipv4.ip_forward = 1\n", mode: "0644" }
+  register: r_sysctl
+
+- name: Aplicarlo ya
+  when: r_sysctl is changed
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/90-nosub-cloud.conf
+  changed_when: true
+
+# ---------- 2. Enlace con la sede ----------
+- name: Clave privada del enlace (se crea aquí una sola vez y no sale del VPS)
+  ansible.builtin.shell: |
+    [ -s {{ cloud_wg_clave }} ] && exit 0
+    umask 077; wg genkey > {{ cloud_wg_clave }} && echo CAMBIO
+  register: r_wg_clave
+  changed_when: "'CAMBIO' in r_wg_clave.stdout"
+
+- name: Clave pública del VPS
+  ansible.builtin.shell: wg pubkey < {{ cloud_wg_clave }}
+  register: r_wg_publica
+  changed_when: false
+
+- name: Guardarla en el repositorio (OPNsense la usa para abrir el enlace)
+  delegate_to: localhost
+  become: false
+  ansible.builtin.copy: { dest: "{{ cloud_wg_publica_repo }}", content: "{{ r_wg_publica.stdout }}\n", mode: "0644" }
+
+- name: Configuración del enlace
+  ansible.builtin.template: { src: wgsede.conf.j2, dest: "/etc/wireguard/{{ cloud_wg_if }}.conf", mode: "0600" }
+  notify: Reiniciar el enlace
+
+- name: Levantar el enlace y que arranque solo
+  ansible.builtin.systemd: { name: "wg-quick@{{ cloud_wg_if }}", state: started, enabled: true }
+
+# node_exporter (rol node_exporter) escucha en la IP del enlace: tiene que arrancar después
+- name: Carpeta de ajustes de node_exporter
+  ansible.builtin.file: { path: /etc/systemd/system/node_exporter.service.d, state: directory, mode: "0755" }
+
+- name: node_exporter, después del enlace
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/node_exporter.service.d/cloud.conf
+    content: |
+      # Gestionado por Ansible (nosub-infra/roles/cloud): escucha en la IP del enlace
+      [Unit]
+      After=wg-quick@{{ cloud_wg_if }}.service
+      Requires=wg-quick@{{ cloud_wg_if }}.service
+    mode: "0644"
+
+# ---------- 3. Cortafuegos ----------
+- name: Cortafuegos del VPS
+  ansible.builtin.template: { src: nftables.conf.j2, dest: /etc/nftables.conf, mode: "0755", validate: "nft -c -f %s" }
+  notify: Aplicar el cortafuegos
+
+- name: Activar el cortafuegos y que arranque solo
+  ansible.builtin.systemd: { name: nftables, state: started, enabled: true }
+
+- name: Comprobar que el cortafuegos está cargado (por si se perdió una recarga)
+  ansible.builtin.shell: nft list table inet nosub >/dev/null 2>&1 || { nft -f /etc/nftables.conf && echo CAMBIO; }
+  register: r_nft
+  changed_when: "'CAMBIO' in r_nft.stdout"
+
+# Las imágenes de Ubuntu de Oracle traen reglas propias (iptables) que rechazan todo menos SSH.
+# Se les añaden los puertos del VPS; sus reglas de servicios de Oracle (169.254.x.x) no se tocan.
+- name: ¿Reglas de Oracle?
+  ansible.builtin.stat: { path: /etc/iptables/rules.v4 }
+  register: r_oracle
+
+- name: Abrir los puertos del VPS en las reglas de Oracle
+  when: r_oracle.stat.exists
+  ansible.builtin.lineinfile:
+    path: /etc/iptables/rules.v4
+    line: "{{ item.regla }}"
+    insertbefore: "{{ item.antes }}"
+  loop:
+    - { regla: "-A INPUT -p tcp -m state --state NEW -m tcp --dport 80 -j ACCEPT", antes: '^-A INPUT -j REJECT' }
+    - { regla: "-A INPUT -p tcp -m state --state NEW -m tcp --dport 443 -j ACCEPT", antes: '^-A INPUT -j REJECT' }
+    - { regla: "-A INPUT -p udp -m udp --dport {{ cloud_enlace_puerto }} -j ACCEPT", antes: '^-A INPUT -j REJECT' }
+    - { regla: "-A INPUT -i {{ cloud_wg_if }} -j ACCEPT", antes: '^-A INPUT -j REJECT' }
+    - { regla: "-A FORWARD -o {{ cloud_wg_if }} -j ACCEPT", antes: '^-A FORWARD -j REJECT' }
+    - { regla: "-A FORWARD -i {{ cloud_wg_if }} -j ACCEPT", antes: '^-A FORWARD -j REJECT' }
+  loop_control: { label: "{{ item.regla }}" }
+  register: r_oracle_reglas
+
+- name: Recargar las reglas de Oracle
+  when: r_oracle_reglas is changed
+  ansible.builtin.command: netfilter-persistent reload
+  changed_when: true
+
+# ---------- 4. Copias externas (rest-server) ----------
+- name: Usuario copias (sin acceso al sistema)
+  ansible.builtin.user: { name: copias, system: true, shell: /usr/sbin/nologin, create_home: false }
+
+- name: Carpeta de las copias
+  ansible.builtin.file: { path: "{{ cloud_copias_dir }}", state: directory, owner: copias, group: copias, mode: "0700" }
+
+- name: Descargar rest-server {{ cloud_restserver_version }} (comprobando su sha256)
+  vars:
+    arq: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+  ansible.builtin.get_url:
+    url: "https://github.com/restic/rest-server/releases/download/v{{ cloud_restserver_version }}/rest-server_{{ cloud_restserver_version }}_linux_{{ arq }}.tar.gz"
+    dest: "/root/rest-server_{{ cloud_restserver_version }}.tar.gz"
+    checksum: "sha256:{{ cloud_restserver_sha256[arq] }}"
+    mode: "0644"
+
+- name: Instalar el binario
+  ansible.builtin.unarchive:
+    src: "/root/rest-server_{{ cloud_restserver_version }}.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    extra_opts: [--strip-components=1, --wildcards, "*/rest-server"]
+    creates: "/usr/local/lib/.rest-server-{{ cloud_restserver_version }}"
+  notify: Reiniciar rest-server
+
+- name: Que se pueda ejecutar (dentro del archivo viene sin permiso)
+  ansible.builtin.file: { path: /usr/local/bin/rest-server, mode: "0755", owner: root, group: root }
+  notify: Reiniciar rest-server
+
+- name: Marcar la versión instalada
+  ansible.builtin.copy: { dest: "/usr/local/lib/.rest-server-{{ cloud_restserver_version }}", content: "", mode: "0644" }
+
+- name: Servicio rest-server
+  ansible.builtin.template: { src: rest-server.service.j2, dest: /etc/systemd/system/rest-server.service, mode: "0644" }
+  notify: Reiniciar rest-server
+
+- name: Arrancar rest-server y que arranque solo
+  ansible.builtin.systemd: { name: rest-server, state: started, enabled: true, daemon_reload: true }
+
+# ---------- 5. Página de estado ----------
+- name: Carpetas de la página de estado
+  ansible.builtin.file: { path: "{{ cloud_dir }}/{{ item }}", state: directory, mode: "0750" }
+  loop: [gatus, datos, caddy, latidos]
+
+- name: Claves de los latidos (se crean aquí; Ansible las lleva a quien avisa)
+  ansible.builtin.shell: |
+    f={{ cloud_dir }}/latidos/{{ item.clave }}
+    [ -s $f ] && exit 0
+    umask 077; python3 -c 'import secrets;print(secrets.token_urlsafe(24))' > $f && echo CAMBIO
+  loop: "{{ cloud_latidos }}"
+  loop_control: { label: "{{ item.clave }}" }
+  register: r_tokens
+  changed_when: "'CAMBIO' in r_tokens.stdout"
+
+- name: Leer las claves de los latidos
+  ansible.builtin.slurp: { src: "{{ cloud_dir }}/latidos/{{ item.clave }}" }
+  loop: "{{ cloud_latidos }}"
+  loop_control: { label: "{{ item.clave }}" }
+  register: r_tokens_leidos
+  no_log: true
+
+- name: Guardarlas para las plantillas (y para los que avisan)
+  ansible.builtin.set_fact:
+    cloud_tokens: "{{ dict(r_tokens_leidos.results | map(attribute='item.clave') | zip(r_tokens_leidos.results | map(attribute='content') | map('b64decode') | map('trim'))) }}"
+  no_log: true
+
+- name: Certificado de NoSub CA (para comprobar las webs de la sede)
+  ansible.builtin.copy: { src: "{{ inventory_dir }}/ca/nosub-ca.crt", dest: "{{ cloud_dir }}/gatus/nosub-ca.crt", mode: "0644" }
+  notify: Reiniciar la página de estado
+
+- name: Qué muestra la página de estado
+  ansible.builtin.template: { src: gatus.yaml.j2, dest: "{{ cloud_dir }}/gatus/config.yaml", mode: "0600" }
+  notify: Reiniciar la página de estado
+
+- name: HTTPS (Caddy)
+  ansible.builtin.template: { src: Caddyfile.j2, dest: "{{ cloud_dir }}/Caddyfile", mode: "0644" }
+  notify: Reiniciar la página de estado
+
+- name: Contenedores
+  ansible.builtin.template: { src: compose.yml.j2, dest: "{{ cloud_dir }}/compose.yml", mode: "0644" }
+
+- name: Arrancar Docker y que arranque solo
+  ansible.builtin.systemd: { name: docker, state: started, enabled: true }
+
+- name: Arrancar la página de estado
+  ansible.builtin.command: docker compose -f {{ cloud_dir }}/compose.yml up -d --remove-orphans --quiet-pull
+  register: r_compose
+  changed_when: r_compose.stderr is search('Started|Recreated|Removed')
+
+- name: Aplicar ya los reinicios pendientes
+  ansible.builtin.meta: flush_handlers
+
+- name: Comprobar que rest-server escucha en el enlace
+  ansible.builtin.wait_for: { host: "{{ cloud_enlace_ip_vps }}", port: "{{ cloud_restserver_puerto }}", timeout: 30 }
+
+- name: Comprobar la página de estado por HTTPS
+  ansible.builtin.uri:
+    url: "https://{{ cloud_nombre_estado }}/api/v1/endpoints/statuses"
+    validate_certs: "{{ not cloud_laboratorio }}"
+  register: r_estado
+  until: r_estado.status == 200
+  retries: 30
+  delay: 3
+  # se comprueba desde el propio VPS (el nombre de sslip.io apunta a su IP pública)

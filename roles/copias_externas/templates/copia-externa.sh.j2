@@ -1,0 +1,11 @@
+#!/bin/sh
+# Gestionado por Ansible (nosub-infra/roles/copias_externas): copia externa de {{ inventory_hostname }} al cloud.
+# Avisa a la página de estado del cloud de cómo ha ido (aviso "Copias externas").
+set -u
+. /etc/restic/entorno
+restic backup --host {{ inventory_hostname }} --tag nosub --one-file-system {{ copias_rutas | join(' ') }} && ok=true || ok=false
+{% if copias_clave_latido is defined %}
+curl -fs -m 10 {{ '-k ' if cloud_laboratorio else '' }}--resolve {{ cloud_nombre_estado }}:443:{{ cloud_ip_publica }} -X POST \
+  -H "Authorization: Bearer $LATIDO" "https://{{ cloud_nombre_estado }}/api/v1/endpoints/copias_copias-externas/external?success=$ok" >/dev/null
+{% endif %}
+[ "$ok" = true ]

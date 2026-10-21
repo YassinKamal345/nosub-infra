@@ -1,5 +1,6 @@
 #!/bin/sh
-# Gestionado por Ansible (nosub-infra/roles/red_lab): cortafuegos de las casas simuladas de los clientes.
+# Gestionado por Ansible (nosub-infra/roles/red_lab): cortafuegos de las casas simuladas de los clientes
+# y del "Internet" simulado donde está el VPS de prueba.
 # Cada casa es como una conexión doméstica: sale a Internet y llega a la sede solo por su WAN ("IP pública").
 # Desde fuera no se puede abrir ninguna conexión hacia una casa (como el NAT de un router de casa).
 set -e
@@ -10,9 +11,27 @@ iptables -A NOSUB-CASAS -m physdev --physdev-is-bridged -j ACCEPT
 {% for c in casas_lab %}
 # {{ c.caja }}
 iptables -A NOSUB-CASAS -i {{ c.puente }} -d {{ wan_lab_opnsense }} -j ACCEPT
+{% if cloud_laboratorio | default(false) %}
+iptables -A NOSUB-CASAS -i {{ c.puente }} -o {{ internet_lab_puente }} -j ACCEPT
+{% endif %}
 iptables -A NOSUB-CASAS -i {{ c.puente }} -o {{ interfaz_salida }} -d {{ red_local }} -j DROP
 iptables -A NOSUB-CASAS -i {{ c.puente }} -o {{ interfaz_salida }} -j ACCEPT
 {% endfor %}
 iptables -A NOSUB-CASAS -j DROP
 iptables -C FORWARD -i {{ casas_patron_puentes }} -j NOSUB-CASAS 2>/dev/null || iptables -I FORWARD 1 -i {{ casas_patron_puentes }} -j NOSUB-CASAS
 iptables -C FORWARD -o {{ casas_patron_puentes }} -j NOSUB-CASAS 2>/dev/null || iptables -I FORWARD 1 -o {{ casas_patron_puentes }} -j NOSUB-CASAS
+{% if cloud_laboratorio | default(false) %}
+
+# "Internet" simulado ({{ internet_lab_puente }}): llega a Internet y a la WAN de la sede (por ahí entra el enlace), nada más
+iptables -N NOSUB-INTERNET 2>/dev/null || iptables -F NOSUB-INTERNET
+iptables -A NOSUB-INTERNET -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A NOSUB-INTERNET -m physdev --physdev-is-bridged -j ACCEPT
+iptables -A NOSUB-INTERNET -i {{ internet_lab_puente }} -d {{ wan_lab_opnsense }} -j ACCEPT
+iptables -A NOSUB-INTERNET -i {{ internet_lab_puente }} -o {{ interfaz_salida }} -d {{ red_local }} -j DROP
+iptables -A NOSUB-INTERNET -i {{ internet_lab_puente }} -o {{ interfaz_salida }} -j ACCEPT
+# Hacia el VPS sí se puede abrir conexión (es un servidor en Internet): desde la sede (WAN), las casas e Internet
+iptables -A NOSUB-INTERNET -o {{ internet_lab_puente }} -j ACCEPT
+iptables -A NOSUB-INTERNET -j DROP
+iptables -C FORWARD -i {{ internet_lab_puente }} -j NOSUB-INTERNET 2>/dev/null || iptables -I FORWARD 1 -i {{ internet_lab_puente }} -j NOSUB-INTERNET
+iptables -C FORWARD -o {{ internet_lab_puente }} -j NOSUB-INTERNET 2>/dev/null || iptables -I FORWARD 1 -o {{ internet_lab_puente }} -j NOSUB-INTERNET
+{% endif %}

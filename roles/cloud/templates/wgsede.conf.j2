@@ -1,0 +1,11 @@
+# Gestionado por Ansible (nosub-infra/roles/cloud): enlace del VPS con la sede NoSub.
+# Lo abre la sede (OPNsense) desde dentro; el VPS solo espera. Clave privada en {{ cloud_wg_clave }} (creada aquí).
+[Interface]
+Address = {{ cloud_enlace_ip_vps }}/{{ cloud_enlace_red | ansible.utils.ipaddr('prefix') }}
+ListenPort = {{ cloud_enlace_puerto }}
+PostUp = wg set %i private-key {{ cloud_wg_clave }}
+
+[Peer]
+# OPNsense de la sede. Detrás de él, las redes de la sede (el VPS las alcanza solo por aquí)
+PublicKey = {{ cloud_wg_publica_sede }}
+AllowedIPs = {{ ([cloud_enlace_ip_sede ~ '/32'] + (vlans | map(attribute='red') | list) + [red_vpn]) | join(', ') }}

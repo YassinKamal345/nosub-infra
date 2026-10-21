@@ -118,3 +118,36 @@
 
 - name: Arrancar Grafana y que arranque sola
   ansible.builtin.systemd: { name: grafana-server, state: started, enabled: true }
+
+# ---------- Latido hacia la página de estado del cloud (rol cloud) ----------
+# La clave la crea el VPS; solo se conoce si el VPS se ha configurado en esta misma ejecución.
+- name: Latido hacia la página de estado
+  when: groups['cloud'] | default([]) | length > 0 and hostvars[groups['cloud'][0]].cloud_tokens is defined
+  vars:
+    # Gatus nombra cada aviso "grupo_nombre", en minúsculas y con guiones
+    latido_clave_gatus: "{{ ('Sede_' ~ (cloud_latidos | selectattr('clave', 'eq', 'monitorizacion') | map(attribute='nombre') | first)) | lower | regex_replace('[ /,.#+&]', '-') }}"
+  block:
+    - name: curl para mandar el latido
+      ansible.builtin.apt: { name: curl, install_recommends: false }
+    - name: Clave del latido (solo la lee root)
+      ansible.builtin.copy:
+        dest: /etc/nosub-latido.env
+        content: "CLAVE={{ hostvars[groups['cloud'][0]].cloud_tokens.monitorizacion }}\n"
+        mode: "0600"
+      no_log: true
+    - name: Script del latido
+      ansible.builtin.template: { src: latido.sh.j2, dest: /usr/local/bin/nosub-latido, mode: "0755" }
+    - name: Servicio y temporizador del latido (cada minuto)
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ item.f }}"
+        mode: "0644"
+        content: "{{ item.c }}"
+      loop:
+        - { f: nosub-latido.service, c: "# Gestionado por Ansible (nosub-infra/roles/monitorizacion)\n[Unit]\nDescription=Latido de la sede a la página de estado del cloud\n\n[Service]\nType=oneshot\nExecStart=/usr/local/bin/nosub-latido\n" }
+        - { f: nosub-latido.timer, c: "# Gestionado por Ansible (nosub-infra/roles/monitorizacion)\n[Unit]\nDescription=Latido de la sede cada minuto\n\n[Timer]\nOnBootSec=1min\nOnUnitActiveSec=1min\n\n[Install]\nWantedBy=timers.target\n" }
+      loop_control: { label: "{{ item.f }}" }
+    - name: Activar el temporizador
+      ansible.builtin.systemd: { name: nosub-latido.timer, state: started, enabled: true, daemon_reload: true }
+    - name: Primer latido (comprueba que la página de estado lo acepta)
+      ansible.builtin.command: /usr/local/bin/nosub-latido
+      changed_when: false

@@ -28,3 +28,8 @@ casas_lab: >-
   {{ l }}
 casas_patron_puentes: vmbr8+          # todos los bridges de casas se llaman vmbr8N
 casas_script_cortafuegos: /usr/local/sbin/nosub-casas-cortafuegos
+
+# "Internet" simulado (solo laboratorio, con cloud_laboratorio): donde está el VPS de prueba.
+# Llega a Internet (NAT) y a la WAN de la sede; no ve la oficina, ni la sede por dentro, ni las casas.
+internet_lab_puente: vmbr90
+internet_lab_red: 203.0.113.0/24

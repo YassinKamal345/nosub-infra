@@ -1,0 +1,21 @@
+# k3s (Kubernetes ligero) para el hosting de proyectos DAM/DAW, en la VM k3s (DMZ)
+k3s_version: v1.36.5+k3s1
+# install.sh de esa misma versión (comprobado con su sha256); él comprueba el sha256 del binario
+k3s_instalador_sha256: 46177d4c99440b4c0311b67233823a8e8a2fc09693f6c89af1a7161e152fbfad
+k3s_dominio_apps: "apps.{{ dominio_interno }}"   # cada proyecto se publica en <nombre>.apps.nosub.lan
+k3s_ip_traefik_dmz: "{{ ip_extranet }}"          # el Traefik de la DMZ es la única entrada (ver rol traefik)
+k3s_kubeconfig_control: /root/.kube/nosub-k3s.yaml   # copia del kubeconfig en el nodo de control (0600)
+
+# Límites por defecto de cada proyecto: así uno no puede quedarse con toda la máquina
+k3s_cuota_defecto: { cpu: "1", ram: 1Gi, pods: 10 }
+
+# Proyectos alojados. Cada uno tiene su espacio (namespace "proyecto-<nombre>"), su cuota y su web.
+#   imagen: contenedor que se ejecuta (puerto: el que escucha dentro)
+#   pagina: true = página de ejemplo propia (para la demo; un proyecto real trae la suya en la imagen)
+k3s_proyectos:
+  - nombre: demo
+    descripcion: Web de ejemplo del hosting DAM/DAW
+    imagen: docker.io/nginxinc/nginx-unprivileged:1.30.6-alpine
+    puerto: 8080
+    replicas: 2
+    pagina: true

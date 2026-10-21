@@ -1,0 +1,97 @@
+# Gestionado por Ansible (nosub-infra/roles/k3s): proyecto "{{ p.nombre }}" ({{ p.descripcion }})
+{% set ns = 'proyecto-' ~ p.nombre %}
+{% set cuota = k3s_cuota_defecto | combine(p.cuota | default({})) %}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ ns }}
+  labels: { nosub/proyecto: "{{ p.nombre }}" }
+---
+# Lo máximo que puede usar el proyecto entre todos sus contenedores
+apiVersion: v1
+kind: ResourceQuota
+metadata: { name: cuota, namespace: {{ ns }} }
+spec:
+  hard:
+    limits.cpu: "{{ cuota.cpu }}"
+    limits.memory: {{ cuota.ram }}
+    pods: "{{ cuota.pods }}"
+---
+# Lo que recibe cada contenedor si no dice nada
+apiVersion: v1
+kind: LimitRange
+metadata: { name: limites, namespace: {{ ns }} }
+spec:
+  limits:
+    - type: Container
+      default: { cpu: 250m, memory: 128Mi }
+      defaultRequest: { cpu: 25m, memory: 32Mi }
+---
+# Aislamiento: al proyecto solo le llega tráfico desde el Traefik de k3s, no desde otros proyectos
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: solo-desde-traefik, namespace: {{ ns }} }
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } }
+          podSelector: { matchLabels: { app.kubernetes.io/name: traefik } }
+{% if p.pagina | default(false) %}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: pagina, namespace: {{ ns }} }
+data:
+  index.html: |
+    <!doctype html>
+    <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{{ empresa }} · {{ p.nombre }}</title>
+    <style>body{font-family:system-ui,sans-serif;max-width:40rem;margin:4rem auto;padding:0 1rem;line-height:1.5}code{background:#eee;padding:0 .3em}</style>
+    </head><body>
+    <h1>Hosting DAM/DAW de {{ empresa }}</h1>
+    <p>Proyecto <code>{{ p.nombre }}</code>: {{ p.descripcion }}.</p>
+    <p>Esta web corre en k3s (VM <code>{{ inventory_hostname }}</code>, DMZ) y se publica por el Traefik de la DMZ con HTTPS.</p>
+    </body></html>
+{% endif %}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: web, namespace: {{ ns }} }
+spec:
+  replicas: {{ p.replicas | default(1) }}
+  selector: { matchLabels: { app: web } }
+  template:
+    metadata: { labels: { app: web } }
+    spec:
+      automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: web
+          image: {{ p.imagen }}
+          ports: [{ containerPort: {{ p.puerto }} }]
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+          readinessProbe: { httpGet: { path: /, port: {{ p.puerto }} } }
+{% if p.pagina | default(false) %}
+          volumeMounts: [{ name: pagina, mountPath: /usr/share/nginx/html, readOnly: true }]
+      volumes: [{ name: pagina, configMap: { name: pagina } }]
+{% endif %}
+---
+apiVersion: v1
+kind: Service
+metadata: { name: web, namespace: {{ ns }} }
+spec:
+  selector: { app: web }
+  ports: [{ port: 80, targetPort: {{ p.puerto }} }]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: { name: web, namespace: {{ ns }} }
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: {{ p.nombre }}.{{ k3s_dominio_apps }}
+      http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: web, port: { number: 80 } } } }

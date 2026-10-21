@@ -1,0 +1,13 @@
+# Gestionado por Ansible (nosub-infra/roles/k3s). Ajustes del Traefik que trae k3s (el de dentro).
+# Solo se fía de las cabeceras X-Forwarded-* del Traefik de la DMZ: así las apps ven la IP real del visitante.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    ports:
+      web:
+        forwardedHeaders:
+          trustedIPs: ["{{ k3s_ip_traefik_dmz }}/32"]

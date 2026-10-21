@@ -1,7 +1,7 @@
 ; Zona inversa {{ bind_zona_inversa }} (IP → nombre). Generada por Ansible (nosub-infra, rol bind9): no editar a mano.
 {% include '_soa.j2' %}
 
-{% for n in dns_nombres + contenedores %}
+{% for n in dns_nombres + contenedores + maquinas_virtuales %}
 {% set o = n.ip.split('.') %}
 {{ '%-8s' | format(o[3] ~ '.' ~ o[2]) }} IN PTR {{ n.nombre }}.{{ bind_zona }}.
 {% endfor %}

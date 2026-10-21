@@ -1,0 +1,109 @@
+# Máquinas virtuales a partir de la imagen "cloud" oficial, configuradas con cloud-init.
+# Como en OPNsense, se crean con qm en el propio Proxmox: importar un disco necesita root.
+- name: Carpeta de imágenes
+  ansible.builtin.file: { path: "{{ vm_dir_imagenes }}", state: directory, mode: "0755" }
+
+- name: Descargar las imágenes que se usan (comprobando su sha256)
+  ansible.builtin.get_url:
+    url: "{{ vm_imagenes[item].url }}"
+    dest: "{{ vm_dir_imagenes }}/{{ vm_imagenes[item].fichero }}"
+    checksum: "sha256:{{ vm_imagenes[item].sha256 }}"
+    mode: "0644"
+  loop: "{{ maquinas_virtuales | map(attribute='so', default=vm_defecto.so) | unique }}"
+
+- name: Permitir ficheros extra de cloud-init (snippets) en el almacén {{ vm_snippets }}
+  ansible.builtin.shell: |
+    set -e
+    # Lo que ya guarda ese almacén (se conserva: solo se añade "snippets")
+    actual=$(awk -v a="{{ vm_snippets }}" '$1 ~ /:$/ {dentro = ($2 == a)} dentro && $1 == "content" {print $2}' /etc/pve/storage.cfg)
+    [ -n "$actual" ] || { echo "No encuentro el almacén {{ vm_snippets }} en storage.cfg" >&2; exit 1; }
+    case ",$actual," in *,snippets,*) exit 0;; esac
+    pvesm set {{ vm_snippets }} --content "$actual,snippets" && echo CAMBIO
+  register: r_snippets
+  changed_when: "'CAMBIO' in r_snippets.stdout"
+
+- name: Carpeta de snippets
+  ansible.builtin.file: { path: "{{ vm_dir_snippets }}", state: directory, mode: "0755" }
+
+# Se suma a lo que genera Proxmox (usuario, clave, red): instala el agente de QEMU, que deja leer
+# la clave SSH de la VM desde Proxmox (como pct exec en los contenedores) sin fiarse de la red.
+- name: Datos extra de cloud-init para todas las VMs
+  ansible.builtin.copy:
+    dest: "{{ vm_dir_snippets }}/nosub-vendor.yml"
+    mode: "0644"
+    content: |
+      #cloud-config
+      # Gestionado por Ansible (nosub-infra/roles/proxmox_vms)
+      timezone: {{ ct_zona_horaria }}
+      package_update: true
+      packages: [qemu-guest-agent]
+      runcmd:
+        - [systemctl, start, qemu-guest-agent]
+
+- name: ¿Qué VMs existen ya?
+  ansible.builtin.stat: { path: "/etc/pve/qemu-server/{{ item.vmid }}.conf" }
+  loop: "{{ maquinas_virtuales }}"
+  loop_control: { label: "{{ item.vmid }} {{ item.nombre }}" }
+  register: vm_existe
+
+- name: Crear las que faltan
+  when: not item.stat.exists
+  vars:
+    vm: "{{ vm_defecto | combine(item.item) }}"
+    vlan: "{{ vlans | selectattr('id', 'eq', vm.vlan) | first }}"
+    puerta: "{{ vlan.red | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}"
+  ansible.builtin.shell: |
+    set -e
+    qm create {{ vm.vmid }} --name {{ vm.nombre }} --ostype l26 --machine q35 --cpu host \
+      --cores {{ vm.nucleos }} --memory {{ vm.ram }} --balloon 0 \
+      --net0 virtio,bridge={{ vm.puente }},tag={{ vm.vlan }} \
+      --scsihw virtio-scsi-single --serial0 socket --vga serial0 --agent 1 \
+      --onboot 1 --startup order={{ vm.arranque }} --tags "sede;vlan{{ vm.vlan }}" \
+      --description "{{ vm.descripcion }}. Gestionado por Ansible: nosub-infra/roles/proxmox_vms"
+    qm set {{ vm.vmid }} --scsi0 {{ vm.almacen }}:0,import-from={{ vm_dir_imagenes }}/{{ vm_imagenes[vm.so].fichero }},iothread=1,discard=on
+    qm resize {{ vm.vmid }} scsi0 {{ vm.disco }}G
+    qm set {{ vm.vmid }} --ide2 {{ vm.almacen }}:cloudinit --boot order=scsi0 \
+      --ciuser root --sshkeys {{ ct_clave_ssh }} \
+      --ipconfig0 ip={{ vm.ip }}/{{ vlan.red | ansible.utils.ipaddr('prefix') }},gw={{ puerta }} \
+      --nameserver {{ puerta }} --searchdomain {{ dominio_interno }} \
+      --cicustom vendor={{ vm_snippets }}:snippets/nosub-vendor.yml
+  loop: "{{ vm_existe.results }}"
+  loop_control: { label: "{{ item.item.vmid }} {{ item.item.nombre }}" }
+
+- name: Encenderlas
+  ansible.builtin.shell: qm status {{ item.vmid }} | grep -q running || { qm start {{ item.vmid }} && echo CAMBIO; }
+  loop: "{{ maquinas_virtuales }}"
+  loop_control: { label: "{{ item.vmid }} {{ item.nombre }}" }
+  register: r_vm_arranque
+  changed_when: "'CAMBIO' in r_vm_arranque.stdout"
+
+# La primera vez, cloud-init instala el agente: puede tardar unos minutos
+- name: Esperar al agente de QEMU (señal de que cloud-init ha terminado)
+  ansible.builtin.command: qm guest cmd {{ item.vmid }} ping
+  loop: "{{ maquinas_virtuales }}"
+  loop_control: { label: "{{ item.nombre }}" }
+  register: r_agente
+  until: r_agente.rc == 0
+  retries: 60
+  delay: 5
+  changed_when: false
+
+- name: Leer la clave SSH de cada VM (desde dentro, por el agente)
+  ansible.builtin.shell: qm guest exec {{ item.vmid }} -- cat /etc/ssh/ssh_host_ed25519_key.pub | python3 -c 'import json,sys;print(json.load(sys.stdin)["out-data"].strip())'
+  loop: "{{ maquinas_virtuales }}"
+  loop_control: { label: "{{ item.nombre }}" }
+  register: claves_vm
+  changed_when: false
+
+- name: Apuntarla en known_hosts del nodo de control
+  ansible.builtin.known_hosts:
+    path: /root/.ssh/known_hosts
+    name: "{{ item.item.ip }}"
+    key: "{{ item.item.ip }} {{ item.stdout.split()[:2] | join(' ') }}"
+  loop: "{{ claves_vm.results }}"
+  loop_control: { label: "{{ item.item.nombre }}" }
+
+- name: Esperar a que respondan por SSH
+  ansible.builtin.wait_for: { host: "{{ item.ip }}", port: 22, timeout: 300 }
+  loop: "{{ maquinas_virtuales }}"
+  loop_control: { label: "{{ item.nombre }} {{ item.ip }}" }

@@ -111,9 +111,9 @@
 - name: Comprobar cada web por HTTPS, fiándose solo de NoSub CA
   ansible.builtin.command:
     argv: [curl, -fsS, -o, /dev/null, --cacert, "{{ traefik_dir_config }}/certs/nosub-ca.crt",
-           --resolve, "{{ item.nombres[0] }}:443:127.0.0.1", "https://{{ item.nombres[0] }}{{ item.salud | default('/') }}"]
+           --resolve, "{{ item.prueba | default(item.nombres[0]) }}:443:127.0.0.1", "https://{{ item.prueba | default(item.nombres[0]) }}{{ item.salud | default('/') }}"]
   loop: "{{ traefik_sitios }}"
-  loop_control: { label: "{{ item.nombres[0] }}" }
+  loop_control: { label: "{{ item.prueba | default(item.nombres[0]) }}" }
   register: traefik_prueba
   until: traefik_prueba.rc == 0
   retries: 15

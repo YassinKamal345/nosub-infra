@@ -6,8 +6,8 @@
 {{ '%-12s' | format(n.nombre) }} IN A     {{ n.ip }}
 {% endfor %}
 
-; Contenedores (lista "contenedores" del inventario)
-{% for c in contenedores %}
+; Contenedores y máquinas virtuales (listas "contenedores" y "maquinas_virtuales" del inventario)
+{% for c in contenedores + maquinas_virtuales %}
 {{ '%-12s' | format(c.nombre) }} IN A     {{ c.ip }}
 {% endfor %}
 

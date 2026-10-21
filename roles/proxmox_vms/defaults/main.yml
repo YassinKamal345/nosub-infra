@@ -40,3 +40,24 @@ ct_defecto:
 
 ct_clave_ssh: /root/.ssh/nosub_ansible.pub   # clave del nodo de control
 ct_zona_horaria: Europe/Madrid
+
+# ---------- Máquinas virtuales (lista "maquinas_virtuales") ----------
+# Imagen "cloud" oficial de cada distribución (fecha fija, comprobada con su sha256)
+vm_imagenes:
+  ubuntu:
+    url: https://cloud-images.ubuntu.com/releases/noble/release-20261017/ubuntu-24.04-server-cloudimg-amd64.img
+    sha256: 04e8f2461a16a44e78a370284471f29616cdd9baf1893df25807b71f985b6c94
+    fichero: ubuntu-24.04-server-cloudimg-amd64-20261017.qcow2
+vm_dir_imagenes: /var/lib/vz/template/iso/cloud
+vm_snippets: local                  # almacén de Proxmox donde van los ficheros extra de cloud-init
+vm_dir_snippets: /var/lib/vz/snippets
+
+# Valores por defecto de cada VM (cada una puede cambiarlos)
+vm_defecto:
+  so: ubuntu
+  nucleos: 2
+  ram: 2048
+  disco: 20
+  almacen: local-lvm
+  puente: vmbr1
+  arranque: 2

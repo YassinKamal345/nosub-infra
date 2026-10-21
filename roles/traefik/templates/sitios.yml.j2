@@ -3,7 +3,8 @@ http:
   routers:
 {% for s in traefik_sitios %}
     {{ s.nombre }}:
-      rule: "{{ s.nombres | map('regex_replace', '^(.*)$', 'Host(`\\1`)') | join(' || ') }}"
+      # Un nombre "*.algo" acepta cualquier subdominio de un nivel (HostRegexp); el resto, nombre exacto (Host)
+      rule: '{% for n in s.nombres %}{% if n.startswith("*.") %}HostRegexp(`^[a-z0-9-]+{{ n[1:] | regex_escape }}$`){% else %}Host(`{{ n }}`){% endif %}{{ " || " if not loop.last }}{% endfor %}'
       entryPoints: [websecure]
       service: {{ s.nombre }}
       middlewares: [seguridad]

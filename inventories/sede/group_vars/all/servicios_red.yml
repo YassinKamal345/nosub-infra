@@ -17,6 +17,7 @@ dns_alias:
   - { nombre: wiki,  destino: intranet }
   - { nombre: nube,  destino: intranet }
   - { nombre: portal, destino: extranet }
+  - { nombre: "*.apps", destino: extranet }   # proyectos DAM/DAW (k3s), siempre a través de Traefik
 
 # VLANs con DHCP (las de servidores y DMZ usan IPs fijas). Rango: .100 a .199.
 # dns: "red-int" = Bind9; "firewall" = el DNS de OPNsense (los invitados no pueden llegar a los servidores).
@@ -57,8 +58,11 @@ monitor_comprobaciones:
   - { nombre: "Wiki (intranet)",   modulo: http_2xx,    destino: "http://10.10.20.14:3000/healthz" }
   - { nombre: "Nextcloud (intranet)", modulo: http_2xx, destino: "http://10.10.20.14/status.php" }
   - { nombre: "Portal de clientes (Traefik HTTPS)", modulo: https_portal, destino: "https://10.10.30.10/salud" }
+  - { nombre: "k3s (API)",         modulo: tcp_connect, destino: "10.10.30.20:6443" }
+  - { nombre: "Hosting DAM/DAW (demo por Traefik)", modulo: https_apps, destino: "https://10.10.30.10/" }
   - { nombre: "Internet",          modulo: icmp,        destino: 9.9.9.9 }
 
 # ---------- Intranet (CT 224) y extranet (CT 230, DMZ) ----------
 ip_intranet: 10.10.20.14
 ip_extranet: 10.10.30.10
+ip_k3s: 10.10.30.20          # VM k3s (DMZ): hosting DAM/DAW

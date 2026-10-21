@@ -33,6 +33,12 @@
   roles:
     - intranet
 
+- name: Hosting DAM/DAW (k3s, en la DMZ; antes que Traefik, que lo publica)
+  hosts: k3s
+  gather_facts: true
+  roles:
+    - k3s
+
 - name: Extranet (portal de clientes y Traefik con HTTPS, en la DMZ)
   hosts: extranet
   gather_facts: true

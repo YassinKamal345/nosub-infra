@@ -26,6 +26,11 @@ contenedores:
   - { vmid: 224, nombre: intranet, vlan: 20, ip: 10.10.20.14, nucleos: 2, ram: 1536, disco: 20, descripcion: "Intranet: Wiki.js + Nextcloud" }
   - { vmid: 230, nombre: extranet, vlan: 30, ip: 10.10.30.10, descripcion: "Extranet (portal de clientes) + Traefik" }
 
+# Máquinas virtuales (las que no pueden ser contenedores; también las crea el rol proxmox_vms).
+# Salen de la imagen "cloud" oficial de su distribución y se configuran con cloud-init.
+maquinas_virtuales:
+  - { vmid: 231, nombre: k3s, vlan: 30, ip: 10.10.30.20, so: ubuntu, nucleos: 2, ram: 3072, disco: 30, descripcion: "k3s: hosting de proyectos DAM/DAW" }
+
 # Solo en el laboratorio (prx): nombres de la página de inicio personal (Caddy en el CT 103, a través
 # del puente prx-sede-*). En la centralita se quitan o se cambian por los de Bind9.
 opnsense_nombres_web: [opnsense.yk.internal]

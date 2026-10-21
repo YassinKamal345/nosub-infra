@@ -26,3 +26,13 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
   desde cero → sin errores a la primera (11 min); luego `git push` del repo a la Gitea nueva y pasada normal
   (crea el espejo de GitHub). Segunda pasada: 0 cambios. Pruebas de red, DHCP y VPN, 12/12 sondas y HTTPS del portal OK.
   Ansible rehace la **configuración**, no los **datos** (repos, wiki, ficheros): esos vuelven de las copias.
+
+## Fase 4 · Producto e integración
+- [x] k3s v1.36.5 en la VM 231 `k3s` (Ubuntu Server 24.04, la tercera distribución, 10.10.30.20, DMZ).
+  La VM sale de la imagen "cloud" oficial con cloud-init (rol `proxmox_vms`, lista `maquinas_virtuales`).
+  Cada proyecto DAM/DAW tiene namespace, cuota y aislamiento propios y se publica en
+  `https://<proyecto>.apps.nosub.lan` a través del Traefik de la DMZ. Proyecto `demo` en marcha;
+  14/14 sondas OK; segunda pasada de `sede.yml`: 0 cambios
+- [ ] Caja del cliente (mini PC) y túneles con la sede
+- [ ] Nube
+- [ ] GNS3

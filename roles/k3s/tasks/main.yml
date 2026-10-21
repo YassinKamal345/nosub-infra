@@ -1,0 +1,91 @@
+# ---------- 1. k3s ----------
+- name: Carpeta de configuración
+  ansible.builtin.file: { path: /etc/rancher/k3s, state: directory, mode: "0755" }
+
+- name: Configuración de k3s
+  ansible.builtin.template: { src: config.yaml.j2, dest: /etc/rancher/k3s/config.yaml, mode: "0600" }
+  notify: Reiniciar k3s
+
+- name: Descargar el instalador de k3s {{ k3s_version }} (comprobando su sha256)
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/k3s-io/k3s/{{ k3s_version | urlencode }}/install.sh"
+    dest: "/usr/local/src/k3s-install-{{ k3s_version }}.sh"
+    checksum: "sha256:{{ k3s_instalador_sha256 }}"
+    mode: "0755"
+
+- name: Instalar k3s {{ k3s_version }} (o cambiar a esa versión)
+  ansible.builtin.shell: |
+    k3s --version 2>/dev/null | grep -qF "{{ k3s_version }}" && exit 0
+    INSTALL_K3S_VERSION="{{ k3s_version }}" sh /usr/local/src/k3s-install-{{ k3s_version }}.sh && echo CAMBIO
+  register: r_k3s
+  changed_when: "'CAMBIO' in r_k3s.stdout"
+
+- name: Arrancar k3s y que arranque solo
+  ansible.builtin.systemd: { name: k3s, state: started, enabled: true }
+
+- name: Aplicar ya los reinicios pendientes
+  ansible.builtin.meta: flush_handlers
+
+- name: Esperar a que el nodo esté listo
+  ansible.builtin.command: k3s kubectl wait --for=condition=Ready node --all --timeout=10s
+  register: r_nodo
+  until: r_nodo.rc == 0
+  retries: 30
+  delay: 5
+  changed_when: false
+
+# ---------- 2. Manifiestos (k3s aplica solo lo que hay en esta carpeta) ----------
+- name: Ajustes del Traefik de k3s
+  ansible.builtin.template: { src: traefik-config.yaml.j2, dest: /var/lib/rancher/k3s/server/manifests/nosub-traefik-config.yaml, mode: "0600" }
+
+- name: Un fichero por proyecto
+  ansible.builtin.template: { src: proyecto.yaml.j2, dest: "/var/lib/rancher/k3s/server/manifests/nosub-proyecto-{{ p.nombre }}.yaml", mode: "0600" }
+  loop: "{{ k3s_proyectos }}"
+  loop_control: { loop_var: p, label: "{{ p.nombre }}" }
+
+- name: Esperar al Traefik de k3s
+  ansible.builtin.command: k3s kubectl -n kube-system rollout status deploy/traefik --timeout=10s
+  register: r_traefik
+  until: r_traefik.rc == 0
+  retries: 36
+  delay: 5
+  changed_when: false
+
+- name: Esperar a que cada proyecto esté en marcha
+  ansible.builtin.command: k3s kubectl -n proyecto-{{ item.nombre }} rollout status deploy/web --timeout=10s
+  loop: "{{ k3s_proyectos }}"
+  loop_control: { label: "{{ item.nombre }}" }
+  register: r_proyecto
+  until: r_proyecto.rc == 0
+  retries: 36
+  delay: 5
+  changed_when: false
+
+- name: Comprobar cada proyecto a través del Traefik de k3s
+  ansible.builtin.command:
+    argv: [curl, -fsS, -o, /dev/null, -H, "Host: {{ item.nombre }}.{{ k3s_dominio_apps }}", "http://{{ ansible_host }}/"]
+  loop: "{{ k3s_proyectos }}"
+  loop_control: { label: "{{ item.nombre }}.{{ k3s_dominio_apps }}" }
+  register: r_prueba
+  until: r_prueba.rc == 0
+  retries: 12
+  delay: 5
+  changed_when: false
+
+# ---------- 3. Acceso de administración desde el nodo de control ----------
+- name: Leer el kubeconfig de k3s
+  ansible.builtin.slurp: { src: /etc/rancher/k3s/k3s.yaml }
+  register: k3s_kubeconfig
+  no_log: true
+
+- name: Carpeta .kube en el nodo de control
+  delegate_to: localhost
+  ansible.builtin.file: { path: "{{ k3s_kubeconfig_control | dirname }}", state: directory, mode: "0700" }
+
+- name: Guardar el kubeconfig en el nodo de control (apuntando a la IP de la VM)
+  delegate_to: localhost
+  ansible.builtin.copy:
+    content: "{{ k3s_kubeconfig.content | b64decode | replace('https://127.0.0.1:6443', 'https://' ~ ansible_host ~ ':6443') | replace('name: default', 'name: nosub-k3s') | replace('cluster: default', 'cluster: nosub-k3s') | replace('user: default', 'user: nosub-k3s') | replace('current-context: default', 'current-context: nosub-k3s') }}"
+    dest: "{{ k3s_kubeconfig_control }}"
+    mode: "0600"
+  no_log: true

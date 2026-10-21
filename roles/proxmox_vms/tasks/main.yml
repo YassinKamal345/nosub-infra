@@ -132,3 +132,8 @@
     key: "{{ item.item.ip }} {{ item.stdout.split()[:2] | join(' ') }}"
   loop: "{{ claves_host.results }}"
   loop_control: { label: "{{ item.item.nombre }}" }
+
+# ---------- 4. Máquinas virtuales ----------
+- name: Máquinas virtuales
+  ansible.builtin.include_tasks: vms.yml
+  when: maquinas_virtuales | default([]) | length > 0

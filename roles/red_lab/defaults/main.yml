@@ -16,3 +16,15 @@ ip_gestion_opnsense: 10.10.10.1
 # Gestión (firewall, Proxmox), servidores (Gitea, Grafana...) y DMZ (portal por HTTPS); nunca la red local (en el laboratorio es la de la oficina). Vacío = no anunciar.
 # Hay que aprobar la ruta una vez en la consola de Tailscale (Machines -> prx -> Edit route settings).
 tailscale_rutas: [10.10.10.0/24, 10.10.20.0/24, 10.10.30.0/24]
+
+# Casas simuladas de los clientes (solo laboratorio): un bridge por caja que tenga "lab" en inventories/cajas.
+# Proxmox hace de router de casa: NAT a Internet y llegada a la sede solo por su WAN (como una IP pública).
+# No ven la oficina, ni la sede por dentro, ni las otras casas. En la realidad, esto es el router del cliente.
+casas_lab: >-
+  {%- set l = [] -%}
+  {%- for h in groups['cajas'] | default([]) if hostvars[h].lab is defined -%}
+  {%- set _ = l.append({'caja': h, 'puente': hostvars[h].lab.puente_casa, 'red': hostvars[h].red_casa}) -%}
+  {%- endfor -%}
+  {{ l }}
+casas_patron_puentes: vmbr8+          # todos los bridges de casas se llaman vmbr8N
+casas_script_cortafuegos: /usr/local/sbin/nosub-casas-cortafuegos

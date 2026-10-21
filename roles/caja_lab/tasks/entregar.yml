@@ -1,0 +1,22 @@
+# "Entrega" la caja: la lleva de la VLAN 60 a la casa simulada del cliente (detrás de su router, sin abrir puertos).
+# Variable: caja
+- name: Datos de la caja {{ caja }}
+  ansible.builtin.set_fact:
+    c: "{{ hostvars[caja] }}"
+    r: "{{ caja_lab_recursos | combine(hostvars[caja].lab) }}"
+
+- name: Conectarla a la red de su casa
+  ansible.builtin.shell: |
+    pct config {{ r.vmid }} | grep -q 'bridge={{ r.puente_casa }},' && exit 0
+    pct set {{ r.vmid }} --net0 name=eth0,bridge={{ r.puente_casa }},ip={{ c.ip_casa }}/{{ c.red_casa | ansible.utils.ipaddr('prefix') }},gw={{ c.red_casa | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}
+    echo CAMBIO
+  register: r_entrega
+  changed_when: "'CAMBIO' in r_entrega.stdout"
+
+- name: Esperar a que abra el túnel con la sede (Proxmox llega a ella por la VPN)
+  ansible.builtin.command: ping -c1 -W2 {{ c.ip_vpn }}
+  register: r_tunel
+  until: r_tunel.rc == 0
+  retries: 30
+  delay: 4
+  changed_when: false

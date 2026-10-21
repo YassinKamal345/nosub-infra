@@ -5,7 +5,16 @@
     mode: "0644"
   notify: Aplicar sysctl
 
-- name: Bridges vmbr1 (troncal) y vmbr2 (WAN de OPNsense)
+- name: Cortafuegos de las casas simuladas de los clientes
+  ansible.builtin.template: { src: casas-cortafuegos.sh.j2, dest: "{{ casas_script_cortafuegos }}", mode: "0755" }
+  register: r_casas_fw
+
+- name: Aplicarlo ya (también se aplica solo al levantar cada casa)
+  when: r_casas_fw is changed and casas_lab | length > 0
+  ansible.builtin.command: "{{ casas_script_cortafuegos }}"
+  changed_when: true
+
+- name: Bridges vmbr1 (troncal), vmbr2 (WAN de OPNsense) y casas de los clientes
   ansible.builtin.blockinfile:
     path: /etc/network/interfaces
     marker: "# {mark} NOSUB red_lab (gestionado por Ansible)"

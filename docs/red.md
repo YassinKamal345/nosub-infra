@@ -52,7 +52,7 @@ flowchart TB
 | 40 | Empleados | 10.10.40.0/24 | .1 | Puestos y WiFi de empleados | Servidores, DMZ e Internet |
 | 50 | Invitados | 10.10.50.0/24 | .1 | WiFi de invitados | Solo Internet |
 | 60 | Lab cajas | 10.10.60.0/24 | .1 | Cajas que se preparan antes de entregarlas | Servidores e Internet |
-| — | VPN | 10.99.0.0/24 | .1 | Teletrabajo y, en la fase 4, las cajas | Servidores y DMZ (no la administración del firewall) |
+| — | VPN | 10.99.0.0/24 | .1 | Teletrabajo (.2-.127) y cajas de los clientes (10.99.0.128/25) | Teletrabajo: servidores y DMZ (no la administración del firewall). Cajas: nada; solo entran en ellas el nodo de control (SSH) y el monitor (métricas) |
 | 99 | Enlace R1 | 172.31.255.0/30 | — | WAN de OPNsense (.2) y R1 (.1) | Fuera del firewall |
 | 100 | Proveedor | 10.255.0.0/29 | — | R1 (.1), R2 (.2), R3 (.3) | Fuera del firewall |
 | 999 | Aparcado | — | — | Nada: puertos sin uso y VLAN nativa de los troncales | — |

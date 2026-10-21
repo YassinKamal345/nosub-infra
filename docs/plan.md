@@ -33,6 +33,12 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
   Cada proyecto DAM/DAW tiene namespace, cuota y aislamiento propios y se publica en
   `https://<proyecto>.apps.nosub.lan` a través del Traefik de la DMZ. Proyecto `demo` en marcha;
   14/14 sondas OK; segunda pasada de `sede.yml`: 0 cambios
-- [ ] Caja del cliente (mini PC) y túneles con la sede
+- [x] Caja del cliente y túneles con la sede (rol `caja`): AdGuard Home, apps en Docker con página de
+  inicio, WireGuard (la clave privada se crea en la caja; solo su pública va al repositorio), cortafuegos
+  propio y node_exporter. Inventario `inventories/cajas`; `caja_nueva.yml` (VLAN 60 → alta en VPN, extranet
+  y monitorización → casa del cliente) y `actualizar_cajas.yml` (por la VPN). En el laboratorio cada caja es
+  un contenedor de prx (rol `caja_lab`) en una casa simulada (`vmbr81`, `vmbr82`). `caja-garcia` (cliente A,
+  Navidrome) y `caja-ruiz` (cliente B, Stirling PDF): `scripts/probar-cajas.sh` 19/19 cada una;
+  14/14 sondas y 10/10 equipos; segunda pasada sin cambios
 - [ ] Nube
 - [ ] GNS3

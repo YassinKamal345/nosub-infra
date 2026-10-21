@@ -29,7 +29,16 @@
 
 - name: Clientes y sus cajas
   ansible.builtin.command:
-    argv: [python3, "{{ extranet_dir }}/gestion.py", cliente, "{{ item | to_json }}"]
+    argv: [python3, "{{ extranet_dir }}/gestion.py", cliente, "{{ item | combine({'cajas': cajas_cliente}) | to_json }}"]
+  vars:
+    cajas_cliente: >-
+      {%- set l = [] -%}
+      {%- for h in groups['cajas'] | default([]) if hostvars[h].cliente == item.usuario -%}
+      {%- set c = hostvars[h] -%}
+      {%- set _ = l.append({'nombre': h, 'ip_vpn': c.ip_vpn, 'red': c.red_casa,
+                            'servicios': cajas_servicios_base + (c.apps | map('extract', cajas_catalogo, 'nombre') | list)}) -%}
+      {%- endfor -%}
+      {{ l }}
   environment: "{{ extranet_entorno | combine({'PORTAL_CLAVE_CLIENTE': vault_extranet.clientes[item.usuario]}) }}"
   loop: "{{ extranet_clientes }}"
   loop_control: { label: "{{ item.usuario }}" }

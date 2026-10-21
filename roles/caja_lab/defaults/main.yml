@@ -1,0 +1,12 @@
+# Solo laboratorio: el contenedor de prx que hace de mini PC N100 de una caja.
+# En la realidad, la caja es un N100 con Proxmox y este rol no se usa.
+caja_lab_plantilla: debian-13-standard_13.6-1_amd64.tar.zst
+caja_lab_almacen: local-lvm
+caja_lab_vlan_preparacion: 60               # laboratorio de cajas de la sede
+caja_lab_dns: 9.9.9.9                       # DNS mientras no hay AdGuard (en casa, el router no da DNS)
+caja_lab_recursos:                          # por defecto; cada caja puede cambiarlos con lab.nucleos, lab.ram, lab.disco
+  nucleos: 2
+  ram: 1024
+  disco: 12
+caja_lab_clave_ssh: /root/.ssh/nosub_ansible.pub   # clave del nodo de control (la misma que en proxmox_vms)
+caja_lab_zona_horaria: Europe/Madrid

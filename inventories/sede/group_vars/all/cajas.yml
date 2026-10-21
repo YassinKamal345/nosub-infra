@@ -1,0 +1,38 @@
+# Cajas de los clientes: lo que la sede necesita saber de ellas (la lista está en inventories/cajas/hosts.yml).
+# Las cajas usan la parte alta de la VPN; la parte baja es para el teletrabajo.
+red_vpn_cajas: 10.99.0.128/25
+# Dónde encuentran las cajas a la sede: en el laboratorio, la WAN de OPNsense; en la sede real, su IP pública
+vpn_sede_endpoint: 172.31.255.2
+vpn_sede_puerto: 51820
+# Únicas máquinas de la sede que pueden entrar en una caja (por la VPN):
+# el nodo de control de Ansible (hoy prx; más adelante gitea) y la monitorización
+cajas_nodos_control: [10.10.10.2, 10.10.20.10]
+cajas_soporte: "{{ cajas_nodos_control + [ip_monitor] }}"
+
+# Catálogo de apps que se pueden poner en una caja (cada caja elige las suyas en "apps").
+# Van en Docker dentro de la caja. Los datos quedan en /opt/caja/datos/<app>/<carpeta>.
+#   puerto: el de la caja en la red de casa · interno: el del contenedor
+#   carpetas: carpeta de la caja -> ruta dentro del contenedor · ram: límite de memoria
+cajas_catalogo:
+  navidrome:
+    nombre: Música (Navidrome)
+    sustituye: Spotify (con música propia)
+    imagen: docker.io/deluan/navidrome:0.64.2
+    puerto: 4533
+    interno: 4533
+    carpetas: { datos: /data, musica: /music }
+    entorno: { ND_SCANSCHEDULE: 1h, ND_LOGLEVEL: warn }
+    ram: 256m
+    icono: navidrome.png
+  stirling_pdf:
+    nombre: PDF (Stirling PDF)
+    sustituye: Adobe Acrobat
+    imagen: docker.io/stirlingtools/stirling-pdf:3.2.0-ultra-lite
+    puerto: 8081
+    interno: 8080
+    carpetas: { configuracion: /configs }
+    entorno: { SECURITY_ENABLELOGIN: "false", LANGS: es_ES }
+    ram: 768m
+    icono: stirling-pdf.png
+# Lo que llevan todas las cajas (no hace falta pedirlo)
+cajas_servicios_base: [Bloqueo de anuncios (AdGuard), Página de inicio]

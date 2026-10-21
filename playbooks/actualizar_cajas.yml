@@ -1,5 +1,18 @@
-# Actualiza las cajas de cliente por la VPN (fase 4).
-- name: Pendiente
-  hosts: localhost
+# Actualiza las cajas ya entregadas, por la VPN (apps, AdGuard, túnel, cortafuegos):
+#   ansible-playbook playbooks/actualizar_cajas.yml            (todas)
+#   ansible-playbook playbooks/actualizar_cajas.yml -l caja-garcia
+# Una caja que no responde (apagada o sin Internet) se salta y aparece al final como inalcanzable.
+- name: Actualizar las cajas de los clientes
+  hosts: cajas
+  gather_facts: true
+  serial: 5            # de 5 en 5: si algo sale mal, no afecta a todas a la vez
+  roles:
+    - caja
+    - node_exporter
+
+- name: Paquetes del sistema al día
+  hosts: cajas
   gather_facts: false
-  tasks: []
+  tasks:
+    - name: Actualizar Debian (solo seguridad y correcciones de la versión estable)
+      ansible.builtin.apt: { upgrade: safe, update_cache: true, cache_valid_time: 3600 }

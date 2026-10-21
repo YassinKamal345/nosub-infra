@@ -46,8 +46,8 @@
     - extranet
     - traefik
 
-- name: Métricas de todas las máquinas (node_exporter)
-  hosts: all
+- name: Métricas de todas las máquinas de la sede (node_exporter; las cajas lo llevan en su rol)
+  hosts: all:!cajas
   gather_facts: false
   roles:
     - node_exporter

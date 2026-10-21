@@ -1,0 +1,24 @@
+# Caja del cliente: AdGuard Home (DNS de la casa), apps en Docker con su página de inicio, WireGuard
+# hacia la sede y un cortafuegos propio. Lo que lleva cada caja está en inventories/cajas/hosts.yml.
+
+# AdGuard Home: binario oficial (github.com/AdguardTeam/AdGuardHome), comprobado con su sha256
+caja_adguard_version: v0.107.79
+caja_adguard_sha256: c48f4a43000665484c5ec28177de11a004759b620dae8f77b2aabefc9ef3687f
+caja_adguard_dir: /opt/AdGuardHome
+caja_adguard_puerto_web: 8080
+caja_adguard_usuario_web: admin
+# Contraseña del administrador de la caja (AdGuard). Se crea en la propia caja y no sale de ella.
+caja_clave_fichero: /root/caja-admin.clave
+
+# Página de inicio (Homepage) en el puerto 80: reúne las apps de la caja
+caja_homepage_imagen: ghcr.io/gethomepage/homepage:v2.6.0
+
+caja_dir: /opt/caja                     # compose.yml, configuración de la página de inicio y datos de las apps
+caja_dns_docker: [9.9.9.9, 149.112.112.112]   # DNS de los contenedores (Quad9)
+
+# WireGuard hacia la sede. La clave privada se crea aquí y nunca sale de la caja; la pública se
+# guarda en el repositorio (inventories/cajas/wireguard/<caja>.pub) para dar de alta el túnel en OPNsense.
+caja_wg_clave: /etc/wireguard/caja.key
+caja_wg_clave_servidor: "{{ lookup('ansible.builtin.pipe', 'echo ' ~ vault_wg_privadas['servidor'] ~ ' | wg pubkey') }}"
+caja_wg_tabla: 51820                    # tabla de rutas propia del túnel
+caja_wg_dir_publicas: "{{ playbook_dir }}/../inventories/cajas/wireguard"

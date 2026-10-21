@@ -1,0 +1,13 @@
+# Gestionado por Ansible (nosub-infra/roles/caja): botones de la página de inicio de la caja
+- Tu caja:
+    - Bloqueo de anuncios:
+        icon: adguard-home.png
+        href: http://{{ ip_casa }}:{{ caja_adguard_puerto_web }}
+        description: "AdGuard Home: DNS de tu casa sin anuncios ni rastreadores"
+{% for a in apps %}
+{% set app = cajas_catalogo[a] %}
+    - {{ app.nombre }}:
+        icon: {{ app.icono }}
+        href: http://{{ ip_casa }}:{{ app.puerto }}
+        description: "En lugar de {{ app.sustituye }}"
+{% endfor %}

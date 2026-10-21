@@ -1,0 +1,68 @@
+# Crea (si falta) el contenedor que hace de caja y lo deja en la VLAN 60 de la sede, listo para prepararlo.
+# Variable: caja (nombre en inventories/cajas)
+- name: Datos de la caja {{ caja }}
+  ansible.builtin.set_fact:
+    c: "{{ hostvars[caja] }}"
+    r: "{{ caja_lab_recursos | combine(hostvars[caja].lab) }}"
+    vlan_prep: "{{ vlans | selectattr('id', 'eq', caja_lab_vlan_preparacion) | first }}"
+
+- name: ¿Existe ya?
+  ansible.builtin.stat: { path: "/etc/pve/lxc/{{ r.vmid }}.conf" }
+  register: ct_conf
+
+- name: Si ya está en casa del cliente, esto no es una caja nueva
+  when: ct_conf.stat.exists
+  ansible.builtin.shell: pct config {{ r.vmid }} | grep -q 'bridge={{ r.puente_casa }}'
+  register: ya_entregada
+  changed_when: false
+  failed_when: false
+
+- name: Parar si ya está entregada
+  when: ct_conf.stat.exists and ya_entregada.rc == 0
+  ansible.builtin.fail:
+    msg: "{{ caja }} ya está en casa del cliente. Para cambiarla, usa playbooks/actualizar_cajas.yml"
+
+- name: Crear el contenedor (como el mini PC recién sacado de la caja)
+  when: not ct_conf.stat.exists
+  vars:
+    puerta: "{{ vlan_prep.red | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}"
+  # Con pct (como root): Docker dentro de un contenedor necesita la opción keyctl
+  ansible.builtin.command: >-
+    pct create {{ r.vmid }} local:vztmpl/{{ caja_lab_plantilla }}
+    --hostname {{ caja }} --cores {{ r.nucleos }} --memory {{ r.ram }} --swap 512
+    --rootfs {{ caja_lab_almacen }}:{{ r.disco }}
+    --net0 name=eth0,bridge=vmbr1,tag={{ caja_lab_vlan_preparacion }},ip={{ c.ip_preparacion }}/{{ vlan_prep.red | ansible.utils.ipaddr('prefix') }},gw={{ puerta }}
+    --nameserver {{ caja_lab_dns }} --searchdomain lan
+    --ssh-public-keys {{ caja_lab_clave_ssh }} --timezone {{ caja_lab_zona_horaria }}
+    --unprivileged 1 --features nesting=1,keyctl=1 --onboot 1
+    --tags "caja;{{ c.cliente }}"
+    --description "Caja {{ caja }} del cliente {{ c.cliente }} (laboratorio: hace de mini PC). Gestionado por Ansible: nosub-infra/roles/caja_lab"
+  changed_when: true
+
+- name: Encenderlo
+  ansible.builtin.shell: pct status {{ r.vmid }} | grep -q running || { pct start {{ r.vmid }} && echo CAMBIO; }
+  register: r_arranque
+  changed_when: "'CAMBIO' in r_arranque.stdout"
+
+- name: Que se presente al firewall
+  ansible.builtin.command: pct exec {{ r.vmid }} -- ping -c1 -W2 {{ vlan_prep.red | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}
+  register: r_ping
+  until: r_ping.rc == 0
+  retries: 10
+  delay: 2
+  changed_when: false
+
+- name: Esperar a que responda por SSH
+  ansible.builtin.wait_for: { host: "{{ c.ip_preparacion }}", port: 22, timeout: 120 }
+
+- name: Leer su clave SSH (desde dentro, no por la red)
+  ansible.builtin.command: pct exec {{ r.vmid }} -- cat /etc/ssh/ssh_host_ed25519_key.pub
+  register: clave_host
+  changed_when: false
+
+- name: Apuntarla en known_hosts (con la IP de preparación y con la de la VPN)
+  ansible.builtin.known_hosts:
+    path: /root/.ssh/known_hosts
+    name: "{{ item }}"
+    key: "{{ item }} {{ clave_host.stdout.split()[:2] | join(' ') }}"
+  loop: ["{{ c.ip_preparacion }}", "{{ c.ip_vpn }}"]

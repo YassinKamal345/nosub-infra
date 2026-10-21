@@ -1,0 +1,28 @@
+#!/usr/sbin/nft -f
+# Gestionado por Ansible (nosub-infra/roles/caja): cortafuegos de la caja {{ inventory_hostname }}.
+# Solo toca su propia tabla (Docker tiene las suyas).
+table inet caja
+delete table inet caja
+table inet caja {
+  set soporte { type ipv4_addr; elements = { {{ cajas_soporte | join(', ') }} } }
+
+  chain entrada {
+    type filter hook input priority 0; policy drop;
+    iif lo accept
+    ct state established,related accept
+    ct state invalid drop
+    meta l4proto { icmp, ipv6-icmp } accept
+    # Soporte de NoSub: Ansible (SSH) y métricas. En casa llegan solo por el túnel
+    ip saddr @soporte tcp dport { 22, {{ node_exporter_puerto | default(9100) }} } accept
+    # Red de casa: DNS (AdGuard), su web y la página de inicio. El túnel no puede usarlos
+    iifname "wg0" drop
+    udp dport 53 accept
+    tcp dport { 53, 80, {{ caja_adguard_puerto_web }} } accept
+  }
+
+  # Las apps (Docker) son para la casa: desde el túnel no se abre ninguna conexión hacia ellas
+  chain paso {
+    type filter hook forward priority -10; policy accept;
+    iifname "wg0" ct state new drop
+  }
+}

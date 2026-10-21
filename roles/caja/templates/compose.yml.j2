@@ -1,0 +1,31 @@
+# Gestionado por Ansible (nosub-infra/roles/caja): apps de la caja {{ inventory_hostname }}.
+# Las elige el cliente (campo "apps" en inventories/cajas/hosts.yml); el catálogo está en cajas_catalogo.
+name: caja
+services:
+  inicio:
+    image: {{ caja_homepage_imagen }}
+    restart: unless-stopped
+    ports: ["80:3000"]
+    environment:
+      HOMEPAGE_ALLOWED_HOSTS: "{{ (['127.0.0.1', ip_casa, ip_preparacion | default(ip_casa), inventory_hostname ~ '.lan'] | unique) | join(',') }}"
+    volumes: ["{{ caja_dir }}/inicio:/app/config"]
+    mem_limit: 256m
+{% for a in apps %}
+{% set app = cajas_catalogo[a] %}
+
+  {{ a | replace('_', '-') }}:
+    image: {{ app.imagen }}
+    restart: unless-stopped
+    ports: ["{{ app.puerto }}:{{ app.interno }}"]
+{% if app.entorno is defined %}
+    environment:
+{% for k, v in app.entorno.items() %}
+      {{ k }}: "{{ v }}"
+{% endfor %}
+{% endif %}
+    volumes:
+{% for carpeta, ruta in app.carpetas.items() %}
+      - "{{ caja_dir }}/datos/{{ a }}/{{ carpeta }}:{{ ruta }}"
+{% endfor %}
+    mem_limit: {{ app.ram }}
+{% endfor %}

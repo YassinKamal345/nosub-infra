@@ -12,7 +12,7 @@ OPNsense guarda toda su configuración en un único config.xml. Este script:
 Uso:  opnsense-aplicar.py URL ESPEC.json [--simular]
 Variables: OPN_CLAVE (para entrar ahora), OPN_CLAVE_ROOT (la que debe tener root), OPN_ADMINS (JSON
 usuario -> contraseña de los administradores personales) y
-OPN_WG_PRIVADAS (JSON con las claves privadas de WireGuard: servidor y cada usuario). Imprime CAMBIADO o SIN CAMBIOS en la última línea.
+OPN_WG_PRIVADAS (JSON con las claves privadas de WireGuard: servidor y cada usuario; de las cajas solo va su clave pública en ESPEC). Imprime CAMBIADO o SIN CAMBIOS en la última línea.
 """
 import base64, json, os, re, sys, time, uuid
 import xml.etree.ElementTree as ET
@@ -261,15 +261,17 @@ def aplicar_wireguard(raiz, wg):
     base = raiz.find("OPNsense/wireguard")
     hijo(base.find("general"), "enabled", "1")
     clientes = base.find("client/clients")
-    nombres = {p["nombre"] for p in wg["usuarios"]}
+    # Usuarios: su clave privada está en el Vault. Cajas: solo se conoce su clave pública (la privada no sale de la caja).
+    pares = [(p, clave_publica(privadas[p["nombre"]])) for p in wg["usuarios"]] + [(c, c["publica"]) for c in wg.get("cajas", [])]
+    nombres = {p["nombre"] for p, _ in pares}
     for c in list(clientes):
         if c.findtext("name") in nombres:
             clientes.remove(c)
     uuids = []
-    for p in wg["usuarios"]:
+    for p, publica in pares:
         u = uid("wg-usuario", p["nombre"]); uuids.append(u)
         e = ET.SubElement(clientes, "client", uuid=u)
-        rellenar(e, {"enabled": "1", "name": p["nombre"], "pubkey": clave_publica(privadas[p["nombre"]]), "psk": None,
+        rellenar(e, {"enabled": "1", "name": p["nombre"], "pubkey": publica, "psk": None,
                      "tunneladdress": p["ip"] + "/32", "serveraddress": None, "serverport": None, "keepalive": None})
     servidores = base.find("server/servers")
     for sv in list(servidores):

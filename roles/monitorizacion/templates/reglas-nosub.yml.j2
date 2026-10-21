@@ -7,6 +7,11 @@ groups:
         for: 2m
         labels: { gravedad: critica }
         annotations: { resumen: "{{ '{{' }} $labels.nombre {{ '}}' }} no responde desde hace 2 minutos" }
+      - alert: CajaSinConexion
+        expr: up{job="cajas"} == 0
+        for: 5m
+        labels: { gravedad: aviso }
+        annotations: { resumen: "La caja {{ '{{' }} $labels.nombre {{ '}}' }} ({{ '{{' }} $labels.cliente {{ '}}' }}) no responde por la VPN desde hace 5 minutos" }
       - alert: ServicioCaido
         expr: probe_success == 0
         for: 2m

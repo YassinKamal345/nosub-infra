@@ -10,17 +10,14 @@ extranet_procesos: 2                  # procesos de gunicorn
 extranet_bd_host: "{{ ip_bbdd }}"
 
 # Clientes de demostración (los de R2 y R3 en docs/red.md). Contraseña de cada uno: vault_extranet.clientes.<usuario>
+# Sus cajas salen del inventario de cajas (inventories/cajas, campo "cliente").
 extranet_clientes:
   - usuario: cliente-a
     nombre: "Familia García"
     correo: "garcia@cliente-a.example"
-    cajas:
-      - { nombre: caja-garcia, ip_vpn: 10.99.0.20, red: 192.168.10.0/24, servicios: [AdGuard, Página de inicio, Música (Navidrome)] }
   - usuario: cliente-b
     nombre: "Estudio Ruiz"
     correo: "estudio@cliente-b.example"
-    cajas:
-      - { nombre: caja-ruiz, ip_vpn: 10.99.0.21, red: 192.168.20.0/24, servicios: [AdGuard, Página de inicio, Copias de seguridad] }
 
 # Variables con las que gestion.py llega a la base de datos (las mismas que usa el portal)
 extranet_entorno:

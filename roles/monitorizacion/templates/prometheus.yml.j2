@@ -14,9 +14,17 @@ scrape_configs:
   # Métricas de cada máquina (node_exporter, rol node_exporter)
   - job_name: nodos
     static_configs:
-{% for h in groups['all'] %}
+{% for h in groups['all'] | reject('in', groups['cajas'] | default([])) %}
       - targets: ["{{ hostvars[h].node_exporter_ip | default(hostvars[h].ansible_host) }}:9100"]
         labels: { nombre: "{{ h }}" }
+{% endfor %}
+
+  # Cajas de los clientes, por la VPN (inventories/cajas). Si una no responde, su túnel está caído.
+  - job_name: cajas
+    static_configs:
+{% for h in groups['cajas'] | default([]) %}
+      - targets: ["{{ hostvars[h].ip_vpn }}:9100"]
+        labels: { nombre: "{{ h }}", cliente: "{{ hostvars[h].cliente }}" }
 {% endfor %}
 
   # Estadísticas de PostgreSQL (postgres_exporter, en esta máquina)

@@ -12,6 +12,7 @@ iface vmbr1.{{ vlan_gestion }} inet static
 	address {{ ip_gestion_prx }}
 	post-up   bridge vlan add dev vmbr1 vid {{ vlan_gestion }} self
 	post-up   ip route replace {{ red_sede }} via {{ ip_gestion_opnsense }} dev vmbr1.{{ vlan_gestion }}
+	post-up   ip route replace {{ red_vpn }} via {{ ip_gestion_opnsense }} dev vmbr1.{{ vlan_gestion }}
 	post-up   iptables -C FORWARD -i vmbr1+ -d {{ red_local }} -m physdev ! --physdev-is-bridged -j DROP -m comment --comment nosub-lab 2>/dev/null || iptables -I FORWARD -i vmbr1+ -d {{ red_local }} -m physdev ! --physdev-is-bridged -j DROP -m comment --comment nosub-lab
 	post-down iptables -D FORWARD -i vmbr1+ -d {{ red_local }} -m physdev ! --physdev-is-bridged -j DROP -m comment --comment nosub-lab
 #Proxmox en la VLAN de gestion de la sede
@@ -27,3 +28,16 @@ iface vmbr2 inet static
 	post-up   iptables -C FORWARD -i vmbr2 -d {{ red_local }} -m physdev ! --physdev-is-bridged -j DROP -m comment --comment nosub-lab 2>/dev/null || iptables -I FORWARD -i vmbr2 -d {{ red_local }} -m physdev ! --physdev-is-bridged -j DROP -m comment --comment nosub-lab
 	post-down iptables -D FORWARD -i vmbr2 -d {{ red_local }} -m physdev ! --physdev-is-bridged -j DROP -m comment --comment nosub-lab
 #Enlace Proxmox - OPNsense (WAN de la sede NoSub)
+{% for c in casas_lab %}
+
+auto {{ c.puente }}
+iface {{ c.puente }} inet static
+	address {{ c.red | ansible.utils.ipaddr('1') }}
+	bridge-ports none
+	bridge-stp off
+	bridge-fd 0
+	post-up   {{ casas_script_cortafuegos }}
+	post-up   iptables -t nat -C POSTROUTING -s {{ c.red }} -o {{ interfaz_salida }} -j MASQUERADE -m comment --comment nosub-lab 2>/dev/null || iptables -t nat -A POSTROUTING -s {{ c.red }} -o {{ interfaz_salida }} -j MASQUERADE -m comment --comment nosub-lab
+	post-down iptables -t nat -D POSTROUTING -s {{ c.red }} -o {{ interfaz_salida }} -j MASQUERADE -m comment --comment nosub-lab
+#Casa simulada del cliente de {{ c.caja }} (router de casa = Proxmox)
+{% endfor %}

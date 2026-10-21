@@ -1,0 +1,184 @@
+# ---------- 1. Paquetes ----------
+- name: Paquetes (WireGuard, cortafuegos y Docker de Debian)
+  ansible.builtin.apt:
+    name: [wireguard-tools, nftables, docker.io, docker-cli, docker-compose, curl, bind9-dnsutils]
+    install_recommends: false
+    update_cache: true
+    cache_valid_time: 86400
+
+# ---------- 2. Túnel con la sede ----------
+- name: Clave privada de WireGuard (se crea aquí una sola vez y no sale de la caja)
+  ansible.builtin.shell: |
+    [ -s {{ caja_wg_clave }} ] && exit 0
+    umask 077; wg genkey > {{ caja_wg_clave }} && echo CAMBIO
+  register: r_wg_clave
+  changed_when: "'CAMBIO' in r_wg_clave.stdout"
+
+- name: Clave pública de la caja
+  ansible.builtin.shell: wg pubkey < {{ caja_wg_clave }}
+  register: r_wg_publica
+  changed_when: false
+
+- name: Guardarla en el repositorio (OPNsense la usa para dar de alta el túnel)
+  delegate_to: localhost
+  ansible.builtin.copy:
+    dest: "{{ caja_wg_dir_publicas }}/{{ inventory_hostname }}.pub"
+    content: "{{ r_wg_publica.stdout }}\n"
+    mode: "0644"
+
+- name: Configuración del túnel
+  ansible.builtin.template: { src: wg0.conf.j2, dest: /etc/wireguard/wg0.conf, mode: "0600" }
+  notify: Reiniciar WireGuard
+
+- name: Arrancar el túnel y que arranque solo
+  ansible.builtin.systemd: { name: wg-quick@wg0, state: started, enabled: true }
+
+# node_exporter (rol node_exporter) escucha en la IP del túnel: tiene que arrancar después
+- name: Carpeta de ajustes de node_exporter
+  ansible.builtin.file: { path: /etc/systemd/system/node_exporter.service.d, state: directory, mode: "0755" }
+
+- name: node_exporter, después del túnel
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/node_exporter.service.d/caja.conf
+    content: |
+      # Gestionado por Ansible (nosub-infra/roles/caja): escucha en la IP del túnel
+      [Unit]
+      After=wg-quick@wg0.service
+      Requires=wg-quick@wg0.service
+    mode: "0644"
+
+# ---------- 3. Cortafuegos ----------
+- name: Cortafuegos de la caja
+  ansible.builtin.template: { src: nftables.conf.j2, dest: /etc/nftables.conf, mode: "0755", validate: "nft -c -f %s" }
+  notify: Aplicar el cortafuegos
+
+- name: Activar el cortafuegos y que arranque solo
+  ansible.builtin.systemd: { name: nftables, state: started, enabled: true }
+
+# Por si se perdió una recarga (por ejemplo, si se cortó una ejecución anterior): la tabla tiene que estar cargada
+- name: Comprobar que el cortafuegos de la caja está cargado
+  ansible.builtin.shell: nft list table inet caja >/dev/null 2>&1 || { nft -f /etc/nftables.conf && echo CAMBIO; }
+  register: r_nft
+  changed_when: "'CAMBIO' in r_nft.stdout"
+
+# ---------- 4. AdGuard Home ----------
+- name: Usuario adguard (sin acceso al sistema)
+  ansible.builtin.user: { name: adguard, system: true, shell: /usr/sbin/nologin, create_home: false }
+
+- name: Carpetas de AdGuard
+  ansible.builtin.file: { path: "{{ item.ruta }}", state: directory, owner: "{{ item.dueno }}", group: "{{ item.dueno }}", mode: "{{ item.modo }}" }
+  loop:
+    - { ruta: "{{ caja_adguard_dir }}", dueno: root, modo: "0755" }           # programa: solo lo cambia root
+    - { ruta: "{{ caja_adguard_dir }}/datos", dueno: adguard, modo: "0750" }  # configuración y estadísticas
+
+- name: Descargar AdGuard Home {{ caja_adguard_version }} (comprobando su sha256)
+  ansible.builtin.get_url:
+    url: "https://github.com/AdguardTeam/AdGuardHome/releases/download/{{ caja_adguard_version }}/AdGuardHome_linux_amd64.tar.gz"
+    dest: "{{ caja_adguard_dir }}/AdGuardHome-{{ caja_adguard_version }}.tar.gz"
+    checksum: "sha256:{{ caja_adguard_sha256 }}"
+    mode: "0644"
+
+- name: Instalar el binario
+  ansible.builtin.unarchive:
+    src: "{{ caja_adguard_dir }}/AdGuardHome-{{ caja_adguard_version }}.tar.gz"
+    dest: "{{ caja_adguard_dir }}"
+    remote_src: true
+    extra_opts: [--strip-components=2, ./AdGuardHome/AdGuardHome]
+    creates: "{{ caja_adguard_dir }}/.version-{{ caja_adguard_version }}"
+  notify: Reiniciar AdGuard
+
+- name: Marcar la versión instalada
+  ansible.builtin.copy: { dest: "{{ caja_adguard_dir }}/.version-{{ caja_adguard_version }}", content: "", mode: "0644" }
+
+- name: Servicio
+  ansible.builtin.template: { src: adguardhome.service.j2, dest: /etc/systemd/system/adguardhome.service, mode: "0644" }
+  notify: Reiniciar AdGuard
+
+- name: Arrancar AdGuard y que arranque solo
+  ansible.builtin.systemd: { name: adguardhome, state: started, enabled: true, daemon_reload: true }
+
+- name: Contraseña del administrador de la caja (se crea aquí; solo la lee root)
+  ansible.builtin.shell: |
+    [ -s {{ caja_clave_fichero }} ] && exit 0
+    umask 077; python3 -c 'import secrets;print(secrets.token_urlsafe(15))' > {{ caja_clave_fichero }} && echo CAMBIO
+  register: r_clave
+  changed_when: "'CAMBIO' in r_clave.stdout"
+
+- name: ¿Está AdGuard configurado ya?
+  ansible.builtin.stat: { path: "{{ caja_adguard_dir }}/datos/AdGuardHome.yaml" }
+  register: r_adguard_conf
+
+# La primera vez AdGuard abre su asistente en el puerto 3000; se completa por su API
+- name: Primera configuración de AdGuard (DNS en el 53, web en el {{ caja_adguard_puerto_web }})
+  when: not r_adguard_conf.stat.exists
+  ansible.builtin.shell: |
+    set -e
+    for i in $(seq 30); do curl -fs http://127.0.0.1:3000/control/install/get_addresses >/dev/null && break; sleep 2; done
+    python3 - <<'PY'
+    import json, urllib.request
+    clave = open("{{ caja_clave_fichero }}").read().strip()
+    datos = {"web": {"ip": "0.0.0.0", "port": {{ caja_adguard_puerto_web }}}, "dns": {"ip": "0.0.0.0", "port": 53},
+             "username": "{{ caja_adguard_usuario_web }}", "password": clave}
+    pet = urllib.request.Request("http://127.0.0.1:3000/control/install/configure", json.dumps(datos).encode(),
+                                 {"Content-Type": "application/json"})
+    urllib.request.urlopen(pet, timeout=30)
+    PY
+  changed_when: true
+
+- name: Esperar a que AdGuard responda como DNS
+  ansible.builtin.command: dig +short +time=2 +tries=1 @127.0.0.1 debian.org
+  register: r_dns
+  until: r_dns.rc == 0 and r_dns.stdout | length > 0
+  retries: 20
+  delay: 3
+  changed_when: false
+
+# ---------- 5. Apps (Docker) ----------
+- name: Ajustes de Docker
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: "{{ {'dns': caja_dns_docker, 'log-driver': 'local'} | to_nice_json }}\n"
+    mode: "0644"
+  notify: Reiniciar Docker
+
+- name: Arrancar Docker y que arranque solo
+  ansible.builtin.systemd: { name: docker, state: started, enabled: true }
+
+- name: Aplicar ya los reinicios pendientes
+  ansible.builtin.meta: flush_handlers
+
+- name: Carpetas de las apps y de sus datos
+  ansible.builtin.file: { path: "{{ item }}", state: directory, mode: "0755" }
+  loop: "{{ [caja_dir, caja_dir ~ '/inicio'] + carpetas_apps }}"
+  vars:
+    carpetas_apps: >-
+      {%- set l = [] -%}
+      {%- for a in apps -%}{%- for c in cajas_catalogo[a].carpetas -%}{%- set _ = l.append(caja_dir ~ '/datos/' ~ a ~ '/' ~ c) -%}{%- endfor -%}{%- endfor -%}
+      {{ l }}
+
+- name: Página de inicio (botones y ajustes)
+  ansible.builtin.template: { src: "{{ item }}.j2", dest: "{{ caja_dir }}/inicio/{{ item | regex_replace('^inicio-', '') }}", mode: "0644" }
+  loop: [inicio-services.yaml, inicio-settings.yaml]
+
+- name: Ficheros vacíos que la página de inicio espera
+  ansible.builtin.copy: { dest: "{{ caja_dir }}/inicio/{{ item }}", content: "", force: false, mode: "0644" }
+  loop: [bookmarks.yaml, widgets.yaml, docker.yaml]
+
+- name: Apps de la caja (compose)
+  ansible.builtin.template: { src: compose.yml.j2, dest: "{{ caja_dir }}/compose.yml", mode: "0644" }
+
+- name: Arrancar las apps (y quitar las que ya no se usan)
+  ansible.builtin.command: docker compose -f {{ caja_dir }}/compose.yml up -d --remove-orphans --quiet-pull
+  register: r_compose
+  changed_when: r_compose.stderr is search('Started|Recreated|Removed')
+
+# ---------- 6. Comprobaciones ----------
+- name: Comprobar la página de inicio y cada app desde la propia caja
+  ansible.builtin.uri:
+    url: "http://127.0.0.1{{ '' if item == 80 else ':' ~ item }}/"   # sin ":80", como un navegador
+    status_code: [200, 302]
+  loop: "{{ [80, caja_adguard_puerto_web] + (apps | map('extract', cajas_catalogo, 'puerto') | list) }}"
+  register: r_apps
+  until: r_apps.status in [200, 302]
+  retries: 40
+  delay: 3

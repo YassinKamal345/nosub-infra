@@ -55,6 +55,10 @@ opnsense_reglas:
   # Una regla por interfaz: OPNsense pone las de varias interfaces antes que todas las demás, y se saltaría las excepciones de arriba.
   - { interface: opt1, action: block, protocol: TCP, destination_net: "(self)", descripcion: "Servidores: sin acceso a la administracion del firewall" }
   - { interface: opt6, action: block, protocol: TCP, destination_net: "(self)", descripcion: "VPN: sin acceso a la administracion del firewall" }
+  # Cajas de los clientes: solo entran en ellas el nodo de control (SSH) y la monitorización (métricas)
+  - { interface: opt1, protocol: TCP, source_net: "{{ ip_monitor }}", destination_net: cajas, destination_port: "9100", descripcion: "Monitor: metricas de las cajas" }
+  - { interface: opt1, protocol: TCP, source_net: control_ansible, destination_net: cajas, destination_port: "22", descripcion: "Nodo de control: Ansible en las cajas" }
+  - { interface: opt1, action: block, destination_net: cajas, descripcion: "Servidores: el resto no entra en las cajas" }
   - { interface: opt1, source_net: opt1, destination_net: lan, destination_not: "1", descripcion: "Servidores: todo menos gestion" }
   # DMZ: solo Internet (las excepciones hacia servidores se añaden con cada servicio)
   - { interface: opt2, protocol: TCP, source_net: "{{ ip_extranet }}", destination_net: "{{ ip_bbdd }}", destination_port: "5432", descripcion: "Extranet: a su base de datos" }
@@ -70,6 +74,8 @@ opnsense_reglas:
   - { interface: opt5, source_net: opt5, destination_net: redes_privadas, destination_not: "1", descripcion: "Lab cajas: Internet" }
   # VPN (opt6 = WireGuard): entrada desde Internet y, dentro, como un empleado desde casa
   - { interface: wan, protocol: UDP, destination_net: wanip, destination_port: "{{ opnsense_wg_puerto }}", descripcion: "WireGuard desde Internet" }
+  # Las cajas no abren conexiones hacia la sede ni hacia otras cajas: solo responden (el firewall recuerda cada conexión)
+  - { interface: opt6, action: block, source_net: cajas, descripcion: "VPN: las cajas no inician conexiones" }
   - { interface: opt6, source_net: opt6, destination_net: opt1, descripcion: "VPN: a servidores" }
   - { interface: opt6, source_net: opt6, destination_net: opt2, descripcion: "VPN: a la DMZ" }
 
@@ -84,4 +90,13 @@ opnsense_wg_ip_servidor: 10.99.0.1/24
 opnsense_wg_endpoint: "{{ opnsense_wan_ip }}"   # dirección por la que llegan los usuarios (en la sede real, la IP pública)
 opnsense_wg_usuarios:
   - { nombre: teletrabajo-prueba, ip: 10.99.0.10 }
+# Cajas de los clientes (inventories/cajas): su clave pública la deja caja_nueva.yml en inventories/cajas/wireguard/<caja>.pub.
+# Una caja sin ese fichero todavía no tiene túnel.
+opnsense_wg_cajas: >-
+  {%- set l = [] -%}
+  {%- for h in groups['cajas'] | default([]) -%}
+  {%- set f = playbook_dir ~ '/../inventories/cajas/wireguard/' ~ h ~ '.pub' -%}
+  {%- if f is file -%}{%- set _ = l.append({'nombre': h, 'ip': hostvars[h].ip_vpn, 'publica': lookup('ansible.builtin.file', f) | trim}) -%}{%- endif -%}
+  {%- endfor -%}
+  {{ l }}
 opnsense_wg_carpeta_confs: /root/nosub-wireguard   # .conf de cada usuario (fuera del repositorio: llevan su clave privada)

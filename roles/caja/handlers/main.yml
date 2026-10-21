@@ -1,0 +1,11 @@
+- name: Reiniciar WireGuard
+  ansible.builtin.systemd: { name: wg-quick@wg0, state: restarted }
+
+- name: Aplicar el cortafuegos
+  ansible.builtin.systemd: { name: nftables, state: reloaded }
+
+- name: Reiniciar Docker
+  ansible.builtin.systemd: { name: docker, state: restarted }
+
+- name: Reiniciar AdGuard
+  ansible.builtin.systemd: { name: adguardhome, state: restarted, daemon_reload: true }

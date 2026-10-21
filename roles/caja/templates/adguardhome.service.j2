@@ -1,0 +1,22 @@
+# Gestionado por Ansible (nosub-infra/roles/caja)
+[Unit]
+Description=AdGuard Home: DNS de la casa con bloqueo de anuncios ({{ caja_adguard_version }})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=adguard
+Group=adguard
+WorkingDirectory={{ caja_adguard_dir }}
+ExecStart={{ caja_adguard_dir }}/AdGuardHome --no-check-update --work-dir {{ caja_adguard_dir }}/datos --config {{ caja_adguard_dir }}/datos/AdGuardHome.yaml
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ caja_adguard_dir }}/datos
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

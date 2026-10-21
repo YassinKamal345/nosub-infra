@@ -1,0 +1,18 @@
+#!/bin/sh
+# Gestionado por Ansible (nosub-infra/roles/red_lab): cortafuegos de las casas simuladas de los clientes.
+# Cada casa es como una conexión doméstica: sale a Internet y llega a la sede solo por su WAN ("IP pública").
+# Desde fuera no se puede abrir ninguna conexión hacia una casa (como el NAT de un router de casa).
+set -e
+iptables -N NOSUB-CASAS 2>/dev/null || iptables -F NOSUB-CASAS
+iptables -A NOSUB-CASAS -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+# Dentro de una misma casa (de equipo a equipo por el bridge, como el switch de casa) no se filtra
+iptables -A NOSUB-CASAS -m physdev --physdev-is-bridged -j ACCEPT
+{% for c in casas_lab %}
+# {{ c.caja }}
+iptables -A NOSUB-CASAS -i {{ c.puente }} -d {{ wan_lab_opnsense }} -j ACCEPT
+iptables -A NOSUB-CASAS -i {{ c.puente }} -o {{ interfaz_salida }} -d {{ red_local }} -j DROP
+iptables -A NOSUB-CASAS -i {{ c.puente }} -o {{ interfaz_salida }} -j ACCEPT
+{% endfor %}
+iptables -A NOSUB-CASAS -j DROP
+iptables -C FORWARD -i {{ casas_patron_puentes }} -j NOSUB-CASAS 2>/dev/null || iptables -I FORWARD 1 -i {{ casas_patron_puentes }} -j NOSUB-CASAS
+iptables -C FORWARD -o {{ casas_patron_puentes }} -j NOSUB-CASAS 2>/dev/null || iptables -I FORWARD 1 -o {{ casas_patron_puentes }} -j NOSUB-CASAS

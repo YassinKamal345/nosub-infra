@@ -1,0 +1,20 @@
+# Gestionado por Ansible (nosub-infra/roles/caja): túnel de la caja {{ inventory_hostname }} con la sede NoSub.
+# La clave privada está en {{ caja_wg_clave }} (creada en la caja; no está en este fichero ni en el repositorio).
+# Solo va por el túnel lo que sale desde la IP de la caja en la VPN (sus respuestas al soporte de NoSub):
+# el resto del tráfico de la caja (y el de la casa) sigue por la conexión normal.
+[Interface]
+Address = {{ ip_vpn }}/32
+Table = off
+PostUp = wg set %i private-key {{ caja_wg_clave }}
+PostUp = ip -4 rule add from {{ ip_vpn }} lookup {{ caja_wg_tabla }} priority 100
+{% for ip in cajas_soporte %}
+PostUp = ip -4 route replace {{ ip }}/32 dev %i table {{ caja_wg_tabla }}
+{% endfor %}
+PostDown = ip -4 rule del from {{ ip_vpn }} lookup {{ caja_wg_tabla }} priority 100
+
+[Peer]
+# Firewall de la sede
+PublicKey = {{ caja_wg_clave_servidor }}
+Endpoint = {{ vpn_sede_endpoint }}:{{ vpn_sede_puerto }}
+AllowedIPs = {{ (cajas_soporte | map('regex_replace', '$', '/32') | list) | join(', ') }}
+PersistentKeepalive = 25

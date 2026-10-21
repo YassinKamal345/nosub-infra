@@ -1,5 +1,69 @@
-# Prepara una caja de cliente nueva (fase 4).
-- name: Pendiente
+# Prepara una caja nueva y la entrega al cliente (fase 4):
+#   1. añadir la caja a inventories/cajas/hosts.yml
+#   2. ansible-playbook playbooks/caja_nueva.yml -e caja=<nombre>
+# La caja se prepara en la VLAN 60 de la sede, se da de alta en la VPN, la monitorización y la extranet,
+# y se lleva a casa del cliente, desde donde abre el túnel. En el laboratorio, la caja es un contenedor de prx.
+- name: Comprobar la caja pedida
   hosts: localhost
   gather_facts: false
-  tasks: []
+  tasks:
+    - name: Tiene que estar en inventories/cajas
+      ansible.builtin.assert:
+        that: caja is defined and caja in groups['cajas']
+        fail_msg: "Uso: ansible-playbook playbooks/caja_nueva.yml -e caja=<nombre> (nombres: {{ groups['cajas'] | join(', ') }})"
+
+- name: Laboratorio - el mini PC de la caja, en la VLAN 60
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: Crear el contenedor que hace de caja
+      when: hostvars[caja].lab is defined
+      ansible.builtin.include_role: { name: caja_lab, tasks_from: crear }
+
+- name: Preparar la caja (por la VLAN 60)
+  hosts: "{{ caja }}"
+  gather_facts: true
+  vars:
+    ansible_host: "{{ ip_preparacion }}"
+  roles:
+    - caja
+    - node_exporter
+
+- name: Dar de alta su túnel en la sede (OPNsense lee su clave pública) y, en el laboratorio, su casa
+  hosts: proxmox
+  gather_facts: true
+  roles:
+    - red_lab
+    - opnsense
+
+- name: La extranet muestra la caja a su cliente
+  hosts: extranet
+  gather_facts: true
+  roles:
+    - extranet
+
+- name: La monitorización la vigila
+  hosts: monitor
+  gather_facts: true
+  roles:
+    - monitorizacion
+
+- name: Laboratorio - llevarla a casa del cliente
+  hosts: proxmox
+  gather_facts: false
+  tasks:
+    - name: Entregar la caja
+      when: hostvars[caja].lab is defined
+      ansible.builtin.include_role: { name: caja_lab, tasks_from: entregar }
+
+- name: Comprobar la caja desde la sede, por el túnel
+  hosts: "{{ caja }}"
+  gather_facts: false
+  tasks:
+    - name: Ansible llega por la VPN
+      ansible.builtin.ping:
+    - name: Túnel activo (último saludo con la sede hace menos de 3 minutos)
+      ansible.builtin.shell: echo $(( $(date +%s) - $(wg show wg0 latest-handshakes | awk '{print $2}') ))
+      register: r_saludo
+      failed_when: r_saludo.stdout | int > 180
+      changed_when: false

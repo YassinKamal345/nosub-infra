@@ -1,0 +1,17 @@
+# Gestionado por Ansible (nosub-infra/roles/intranet)
+[Unit]
+Description=Wiki.js (intranet de {{ empresa }})
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ wiki_usuario }}
+Group={{ wiki_usuario }}
+WorkingDirectory={{ wiki_dir }}/actual
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node server
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

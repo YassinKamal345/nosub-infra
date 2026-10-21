@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}Nueva incidencia{% endblock %}
+{% block contenido %}
+<section class="tarjeta estrecha">
+  <h1>Nueva incidencia</h1>
+  <form method="post">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Caja
+      <select name="caja">
+        <option value="">General (no es de una caja)</option>
+        {% for c in cajas %}<option value="{{ c.id }}">{{ c.nombre }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Asunto <input name="asunto" maxlength="200" required></label>
+    <label>¿Qué pasa? <textarea name="detalle" rows="6" maxlength="5000" required></textarea></label>
+    <div class="acciones">
+      <a class="boton secundario" href="{{ url_for('panel') }}">Cancelar</a>
+      <button type="submit" class="boton">Enviar</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

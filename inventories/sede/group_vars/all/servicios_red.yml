@@ -14,6 +14,9 @@ dns_alias:
   - { nombre: dhcp,  destino: red-int }
   - { nombre: proxy, destino: red-int }
   - { nombre: git,   destino: gitea }
+  - { nombre: wiki,  destino: intranet }
+  - { nombre: nube,  destino: intranet }
+  - { nombre: portal, destino: extranet }
 
 # VLANs con DHCP (las de servidores y DMZ usan IPs fijas). Rango: .100 a .199.
 # dns: "red-int" = Bind9; "firewall" = el DNS de OPNsense (los invitados no pueden llegar a los servidores).
@@ -33,6 +36,9 @@ ip_bbdd: 10.10.20.12
 postgresql_bases:
   - { nombre: gitea, usuario: gitea, desde: [10.10.20.10] }
   - { nombre: grafana, usuario: grafana, desde: [10.10.20.13] }
+  - { nombre: wikijs, usuario: wikijs, desde: [10.10.20.14] }
+  - { nombre: nextcloud, usuario: nextcloud, desde: [10.10.20.14] }
+  - { nombre: extranet, usuario: extranet, desde: [10.10.30.10] }    # desde la DMZ: OPNsense solo deja pasar este puerto
 # Usuario de solo lectura de estadísticas (rol pg_monitor) para la monitorización
 postgresql_monitor: { usuario: prometheus, desde: [10.10.20.13] }
 
@@ -48,4 +54,11 @@ monitor_comprobaciones:
   - { nombre: "Proxy (Squid)",     modulo: tcp_connect, destino: "10.10.20.11:3128" }
   - { nombre: "PostgreSQL",        modulo: tcp_connect, destino: "10.10.20.12:5432" }
   - { nombre: "Grafana (web)",     modulo: http_2xx,    destino: "http://10.10.20.13:3000/api/health" }
+  - { nombre: "Wiki (intranet)",   modulo: http_2xx,    destino: "http://10.10.20.14:3000/healthz" }
+  - { nombre: "Nextcloud (intranet)", modulo: http_2xx, destino: "http://10.10.20.14/status.php" }
+  - { nombre: "Portal de clientes (extranet)", modulo: http_2xx, destino: "http://10.10.30.10:8080/salud" }
   - { nombre: "Internet",          modulo: icmp,        destino: 9.9.9.9 }
+
+# ---------- Intranet (CT 224) y extranet (CT 230, DMZ) ----------
+ip_intranet: 10.10.20.14
+ip_extranet: 10.10.30.10

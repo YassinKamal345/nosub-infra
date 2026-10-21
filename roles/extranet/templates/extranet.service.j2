@@ -1,0 +1,21 @@
+# Gestionado por Ansible (nosub-infra/roles/extranet)
+[Unit]
+Description=Portal de clientes de {{ empresa }} (extranet)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ extranet_usuario }}
+Group={{ extranet_usuario }}
+WorkingDirectory={{ extranet_dir }}
+EnvironmentFile=/etc/extranet/extranet.env
+ExecStart=/usr/bin/gunicorn --bind 0.0.0.0:{{ extranet_puerto }} --workers {{ extranet_procesos }} --access-logfile - portal:app
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

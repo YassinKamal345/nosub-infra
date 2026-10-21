@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block titulo %}Mi panel{% endblock %}
+{% block contenido %}
+<h1>Hola, {{ cliente.nombre }}</h1>
+
+<h2>Mis cajas</h2>
+<div class="rejilla">
+  {% for c in cajas %}
+  <article class="tarjeta">
+    <h3>{{ c.nombre }}</h3>
+    <p class="estado {{ 'ok' if c.ultima_conexion else 'pendiente' }}">
+      {% if c.ultima_conexion %}Última conexión: {{ c.ultima_conexion.strftime('%d/%m/%Y %H:%M') }}{% else %}Aún sin datos de conexión{% endif %}
+    </p>
+    <dl>
+      <dt>Dirección en la VPN</dt><dd>{{ c.ip_vpn }}</dd>
+      <dt>Red de tu casa</dt><dd>{{ c.red }}</dd>
+    </dl>
+    <p class="etiquetas">{% for s in c.servicios %}<span>{{ s }}</span>{% endfor %}</p>
+  </article>
+  {% else %}
+  <p class="suave">Todavía no tienes ninguna caja.</p>
+  {% endfor %}
+</div>
+
+<div class="cabecera-seccion">
+  <h2>Mis incidencias</h2>
+  <a class="boton" href="{{ url_for('incidencia_nueva') }}">Nueva incidencia</a>
+</div>
+{% if incidencias %}
+<table>
+  <thead><tr><th>N.º</th><th>Asunto</th><th>Caja</th><th>Fecha</th><th>Estado</th></tr></thead>
+  <tbody>
+  {% for i in incidencias %}
+    <tr><td>{{ i.id }}</td><td>{{ i.asunto }}</td><td>{{ i.caja or '—' }}</td>
+        <td>{{ i.creada.strftime('%d/%m/%Y') }}</td><td><span class="estado-inc {{ i.estado | replace(' ', '-') }}">{{ i.estado }}</span></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="suave">No tienes incidencias abiertas.</p>
+{% endif %}
+{% endblock %}

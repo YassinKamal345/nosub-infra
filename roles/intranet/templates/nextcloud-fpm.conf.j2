@@ -1,0 +1,14 @@
+; Gestionado por Ansible (nosub-infra/roles/intranet): grupo de procesos PHP de Nextcloud
+[nextcloud]
+user = www-data
+group = www-data
+listen = /run/php/nextcloud.sock
+listen.owner = www-data
+listen.group = www-data
+; Pocos procesos: es un laboratorio con poca RAM
+pm = dynamic
+pm.max_children = 8
+pm.start_servers = 2
+pm.min_spare_servers = 1
+pm.max_spare_servers = 3
+env[PATH] = /usr/local/bin:/usr/bin:/bin

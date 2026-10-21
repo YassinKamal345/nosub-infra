@@ -27,6 +27,18 @@
     - kea_dhcp
     - squid
 
+- name: Intranet (Wiki.js y Nextcloud)
+  hosts: intranet
+  gather_facts: true
+  roles:
+    - intranet
+
+- name: Extranet (portal de clientes, en la DMZ)
+  hosts: extranet
+  gather_facts: true
+  roles:
+    - extranet
+
 - name: Métricas de todas las máquinas (node_exporter)
   hosts: all
   gather_facts: false

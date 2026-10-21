@@ -1,0 +1,2 @@
+- name: Reiniciar el portal
+  ansible.builtin.systemd: { name: extranet, state: restarted, daemon_reload: true }

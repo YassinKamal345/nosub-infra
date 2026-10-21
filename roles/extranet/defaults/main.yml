@@ -1,0 +1,29 @@
+# Portal de clientes de NoSub (aplicación propia en Python, files/portal). Va en la DMZ.
+extranet_usuario: extranet
+extranet_dir: /opt/extranet           # código del portal (lo copia Ansible desde el repositorio)
+extranet_puerto: 8080                 # en la 3.5 Traefik pondrá HTTPS delante
+extranet_procesos: 2                  # procesos de gunicorn
+
+# Base de datos: PostgreSQL en bbdd (base "extranet", contraseña en vault_postgresql.extranet).
+# Desde la DMZ solo se llega a ese puerto (regla "Extranet: a su base de datos" en OPNsense).
+extranet_bd_host: "{{ ip_bbdd }}"
+
+# Clientes de demostración (los de R2 y R3 en docs/red.md). Contraseña de cada uno: vault_extranet.clientes.<usuario>
+extranet_clientes:
+  - usuario: cliente-a
+    nombre: "Familia García"
+    correo: "garcia@cliente-a.example"
+    cajas:
+      - { nombre: caja-garcia, ip_vpn: 10.99.0.20, red: 192.168.10.0/24, servicios: [AdGuard, Página de inicio, Música (Navidrome)] }
+  - usuario: cliente-b
+    nombre: "Estudio Ruiz"
+    correo: "estudio@cliente-b.example"
+    cajas:
+      - { nombre: caja-ruiz, ip_vpn: 10.99.0.21, red: 192.168.20.0/24, servicios: [AdGuard, Página de inicio, Copias de seguridad] }
+
+# Variables con las que gestion.py llega a la base de datos (las mismas que usa el portal)
+extranet_entorno:
+  PORTAL_BD_HOST: "{{ extranet_bd_host }}"
+  PORTAL_BD_NOMBRE: extranet
+  PORTAL_BD_USUARIO: extranet
+  PORTAL_BD_CLAVE: "{{ vault_postgresql.extranet }}"

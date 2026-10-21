@@ -1,0 +1,25 @@
+# ---------- Wiki.js (documentación interna de los empleados) ----------
+# Versión 2 estable (la 3 sigue en beta). Paquete oficial de GitHub, comprobado con su sha256.
+wiki_version: "2.5.315"
+wiki_sha256: 34cb53223ff2b00be3cc98cc8190535322b4fcc0a7af1d114c1225143e63f5e4
+wiki_usuario: wikijs
+wiki_dir: /opt/wikijs                 # programa: una carpeta por versión y el enlace "actual"
+wiki_dir_datos: /var/lib/wikijs       # caché y subidas temporales (las páginas van en PostgreSQL)
+wiki_puerto: 3000
+wiki_admin_correo: "yassin@{{ dominio_interno }}"   # Wiki.js entra con el correo; contraseña: vault_intranet.wiki_admin_clave
+wiki_url: "http://{{ (wiki_nombres_web | default(['wiki.' ~ dominio_interno ~ ':' ~ wiki_puerto]))[0] }}"
+
+# ---------- Nextcloud (archivos, calendario y contactos de los empleados) ----------
+nube_version: "35.0.2"
+nube_sha256: dfc7955eaec5621de90e031d10f76006173b3f3e31d5d6e174821d1da14f162d
+nube_dir: /var/www/nextcloud
+nube_dir_datos: /var/lib/nextcloud    # archivos de los usuarios, fuera de la carpeta web
+nube_admin: yassin                    # contraseña: vault_intranet.nube_admin_clave
+nube_php: "8.4"                       # PHP de Debian 13
+nube_subida_max: 1G
+# Nombres con los que se puede abrir Nextcloud (además de la IP)
+nube_nombres: "{{ [ansible_host, 'nube.' ~ dominio_interno, 'intranet.' ~ dominio_interno] + (nube_nombres_web | default([])) }}"
+nube_url: "http://{{ (nube_nombres_web | default(['nube.' ~ dominio_interno]))[0] }}"
+
+# Base de datos: PostgreSQL en bbdd (bases "wikijs" y "nextcloud", contraseñas en vault_postgresql)
+intranet_bd_host: "{{ ip_bbdd }}"

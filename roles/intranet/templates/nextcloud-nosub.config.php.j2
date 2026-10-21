@@ -1,0 +1,18 @@
+<?php
+// Gestionado por Ansible (nosub-infra/roles/intranet). Nextcloud lo lee después de config.php.
+$CONFIG = array (
+  'trusted_domains' => array (
+{% for n in nube_nombres %}
+    {{ loop.index0 }} => '{{ n }}',
+{% endfor %}
+  ),
+  'overwrite.cli.url' => '{{ nube_url }}',
+  'default_language' => 'es',
+  'default_locale' => 'es_ES',
+  'default_phone_region' => 'ES',
+  'default_timezone' => 'Europe/Madrid',
+  'maintenance_window_start' => 1,
+  'memcache.local' => '\OC\Memcache\APCu',
+  'skeletondirectory' => '',
+  'knowledgebaseenabled' => false,
+);

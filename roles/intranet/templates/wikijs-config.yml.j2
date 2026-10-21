@@ -1,0 +1,21 @@
+# Gestionado por Ansible (nosub-infra/roles/intranet). Lleva la contraseña de la base de datos.
+port: {{ wiki_puerto }}
+bindIP: 0.0.0.0
+db:
+  type: postgres
+  host: {{ intranet_bd_host }}
+  port: 5432
+  user: wikijs
+  pass: {{ vault_postgresql.wikijs }}
+  db: wikijs
+  ssl: false
+ssl:
+  enabled: false
+pool:
+  min: 1
+  max: 5
+logLevel: info
+logFormat: default
+offline: false
+ha: false
+dataPath: {{ wiki_dir_datos }}

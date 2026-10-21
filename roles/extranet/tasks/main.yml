@@ -1,0 +1,55 @@
+# ---------- 1. Programa ----------
+- name: Paquetes (Flask, psycopg y gunicorn de Debian)
+  ansible.builtin.apt:
+    name: [python3-flask, python3-psycopg, gunicorn]
+    install_recommends: false
+    update_cache: true
+    cache_valid_time: 86400
+
+- name: Usuario {{ extranet_usuario }} (el portal no corre como root)
+  ansible.builtin.user: { name: "{{ extranet_usuario }}", system: true, home: "{{ extranet_dir }}", create_home: false, shell: /usr/sbin/nologin, comment: Portal de clientes }
+
+- name: Código del portal
+  ansible.builtin.copy: { src: portal/, dest: "{{ extranet_dir }}/", owner: root, group: root, mode: "u=rwX,go=rX" }
+  notify: Reiniciar el portal
+
+- name: Carpeta de configuración
+  ansible.builtin.file: { path: /etc/extranet, state: directory, owner: root, group: "{{ extranet_usuario }}", mode: "0750" }
+
+- name: Configuración (lleva secretos del Vault)
+  ansible.builtin.template: { src: extranet.env.j2, dest: /etc/extranet/extranet.env, owner: root, group: "{{ extranet_usuario }}", mode: "0640" }
+  notify: Reiniciar el portal
+
+# ---------- 2. Tablas y clientes ----------
+- name: Crear las tablas que falten
+  ansible.builtin.command: python3 {{ extranet_dir }}/gestion.py tablas
+  environment: "{{ extranet_entorno }}"
+  register: r_tablas
+  changed_when: "'CAMBIO' in r_tablas.stdout"
+
+- name: Clientes y sus cajas
+  ansible.builtin.command:
+    argv: [python3, "{{ extranet_dir }}/gestion.py", cliente, "{{ item | to_json }}"]
+  environment: "{{ extranet_entorno | combine({'PORTAL_CLAVE_CLIENTE': vault_extranet.clientes[item.usuario]}) }}"
+  loop: "{{ extranet_clientes }}"
+  loop_control: { label: "{{ item.usuario }}" }
+  register: r_clientes
+  changed_when: "'CAMBIO' in r_clientes.stdout"
+
+# ---------- 3. Servicio ----------
+- name: Servicio systemd
+  ansible.builtin.template: { src: extranet.service.j2, dest: /etc/systemd/system/extranet.service, mode: "0644" }
+  notify: Reiniciar el portal
+
+- name: Arrancar el portal y que arranque solo
+  ansible.builtin.systemd: { name: extranet, state: started, enabled: true, daemon_reload: true }
+
+- name: Aplicar ya los reinicios pendientes
+  ansible.builtin.meta: flush_handlers
+
+- name: Comprobar que el portal responde y llega a su base de datos
+  ansible.builtin.uri: { url: "http://127.0.0.1:{{ extranet_puerto }}/salud" }
+  register: salud
+  until: salud.status == 200
+  retries: 15
+  delay: 2

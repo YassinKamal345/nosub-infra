@@ -1,0 +1,230 @@
+# ---------- 1. Wiki.js ----------
+- name: Paquetes (Node.js de Debian para Wiki.js; nginx y PHP para Nextcloud)
+  ansible.builtin.apt:
+    name:
+      - nodejs
+      - nginx
+      - "php{{ nube_php }}-fpm"
+      - "php{{ nube_php }}-pgsql"
+      - "php{{ nube_php }}-gd"
+      - "php{{ nube_php }}-curl"
+      - "php{{ nube_php }}-xml"
+      - "php{{ nube_php }}-mbstring"
+      - "php{{ nube_php }}-zip"
+      - "php{{ nube_php }}-intl"
+      - "php{{ nube_php }}-bcmath"
+      - "php{{ nube_php }}-gmp"
+      - "php{{ nube_php }}-apcu"
+      - "php{{ nube_php }}-imagick"
+      - "php{{ nube_php }}-opcache"
+      - bzip2
+    install_recommends: false
+    update_cache: true
+    cache_valid_time: 86400
+
+- name: Usuario {{ wiki_usuario }} (Wiki.js no corre como root)
+  ansible.builtin.user: { name: "{{ wiki_usuario }}", system: true, home: "{{ wiki_dir_datos }}", shell: /usr/sbin/nologin, comment: Wiki.js }
+
+- name: Carpetas de Wiki.js
+  ansible.builtin.file: { path: "{{ item.ruta }}", state: directory, owner: "{{ item.dueno }}", group: "{{ wiki_usuario }}", mode: "0750" }
+  loop:
+    - { ruta: "{{ wiki_dir }}", dueno: root }
+    - { ruta: "{{ wiki_dir }}/{{ wiki_version }}", dueno: root }
+    - { ruta: "{{ wiki_dir_datos }}", dueno: "{{ wiki_usuario }}" }
+
+- name: Descargar Wiki.js {{ wiki_version }} (comprobando su sha256)
+  ansible.builtin.get_url:
+    url: "https://github.com/requarks/wiki/releases/download/v{{ wiki_version }}/wiki-js.tar.gz"
+    dest: "{{ wiki_dir }}/wiki-js-{{ wiki_version }}.tar.gz"
+    checksum: "sha256:{{ wiki_sha256 }}"
+    mode: "0644"
+
+- name: Descomprimir Wiki.js {{ wiki_version }}
+  ansible.builtin.unarchive:
+    src: "{{ wiki_dir }}/wiki-js-{{ wiki_version }}.tar.gz"
+    dest: "{{ wiki_dir }}/{{ wiki_version }}"
+    remote_src: true
+    creates: "{{ wiki_dir }}/{{ wiki_version }}/server/index.js"
+  notify: Reiniciar Wiki.js
+
+- name: Configuración de Wiki.js (lleva la contraseña de la base de datos)
+  ansible.builtin.template: { src: wikijs-config.yml.j2, dest: "{{ wiki_dir }}/{{ wiki_version }}/config.yml", owner: root, group: "{{ wiki_usuario }}", mode: "0640" }
+  notify: Reiniciar Wiki.js
+
+- name: Usar esa versión
+  ansible.builtin.file: { src: "{{ wiki_dir }}/{{ wiki_version }}", dest: "{{ wiki_dir }}/actual", state: link }
+  notify: Reiniciar Wiki.js
+
+- name: Servicio systemd de Wiki.js
+  ansible.builtin.template: { src: wikijs.service.j2, dest: /etc/systemd/system/wikijs.service, mode: "0644" }
+  notify: Reiniciar Wiki.js
+
+- name: Arrancar Wiki.js y que arranque solo
+  ansible.builtin.systemd: { name: wikijs, state: started, enabled: true, daemon_reload: true }
+
+- name: Aplicar ya los reinicios pendientes
+  ansible.builtin.meta: flush_handlers
+
+- name: Esperar a Wiki.js
+  ansible.builtin.uri: { url: "http://127.0.0.1:{{ wiki_puerto }}/", return_content: true }
+  register: wiki_inicio
+  until: wiki_inicio.status == 200
+  retries: 60
+  delay: 2
+
+# La primera vez Wiki.js arranca en "modo instalación": se termina por su API con el administrador y la dirección.
+- name: Terminar la instalación de Wiki.js (solo la primera vez)
+  when: "'wiki-setup' in wiki_inicio.content or 'setup.js' in wiki_inicio.content"
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ wiki_puerto }}/finalize"
+    method: POST
+    body_format: json
+    body:
+      adminEmail: "{{ wiki_admin_correo }}"
+      adminPassword: "{{ vault_intranet.wiki_admin_clave }}"
+      adminPasswordConfirm: "{{ vault_intranet.wiki_admin_clave }}"
+      siteUrl: "{{ wiki_url }}"
+      telemetry: false
+    return_content: true
+    timeout: 120
+  register: wiki_fin
+  failed_when: not (wiki_fin.json.ok | default(false))
+  changed_when: true
+  no_log: true
+
+- name: Esperar a que Wiki.js vuelva a arrancar ya instalado
+  ansible.builtin.uri: { url: "http://127.0.0.1:{{ wiki_puerto }}/healthz" }
+  register: wiki_salud
+  until: wiki_salud.status == 200
+  retries: 60
+  delay: 2
+
+# ---------- 2. Nextcloud ----------
+- name: Ajustes de PHP para Nextcloud (web y línea de comandos)
+  ansible.builtin.template: { src: nextcloud-php.ini.j2, dest: "/etc/php/{{ nube_php }}/{{ item }}/conf.d/90-nextcloud.ini", mode: "0644" }
+  loop: [fpm, cli]
+  notify: Reiniciar PHP
+
+- name: Grupo de procesos PHP de Nextcloud
+  ansible.builtin.template: { src: nextcloud-fpm.conf.j2, dest: "/etc/php/{{ nube_php }}/fpm/pool.d/nextcloud.conf", mode: "0644" }
+  notify: Reiniciar PHP
+
+- name: Quitar el grupo de procesos de ejemplo de PHP (gasta RAM sin usarse)
+  ansible.builtin.file: { path: "/etc/php/{{ nube_php }}/fpm/pool.d/www.conf", state: absent }
+  notify: Reiniciar PHP
+
+- name: Carpeta de datos de Nextcloud (fuera de la web)
+  ansible.builtin.file: { path: "{{ nube_dir_datos }}", state: directory, owner: www-data, group: www-data, mode: "0750" }
+
+- name: Descargar Nextcloud {{ nube_version }} (comprobando su sha256)
+  ansible.builtin.get_url:
+    url: "https://download.nextcloud.com/server/releases/nextcloud-{{ nube_version }}.tar.bz2"
+    dest: "/var/cache/nextcloud-{{ nube_version }}.tar.bz2"
+    checksum: "sha256:{{ nube_sha256 }}"
+    mode: "0644"
+
+# Solo se descomprime si aún no hay Nextcloud: las actualizaciones se hacen con su actualizador (ver README).
+- name: Descomprimir Nextcloud (solo la primera vez)
+  ansible.builtin.unarchive:
+    src: "/var/cache/nextcloud-{{ nube_version }}.tar.bz2"
+    dest: /var/www
+    remote_src: true
+    owner: www-data
+    group: www-data
+    creates: "{{ nube_dir }}/occ"
+
+- name: Aplicar ya los reinicios pendientes
+  ansible.builtin.meta: flush_handlers
+
+- name: ¿Está instalado Nextcloud?
+  ansible.builtin.command: runuser -u www-data -- php {{ nube_dir }}/occ status --output=json
+  register: nube_estado
+  changed_when: false
+
+- name: Instalar Nextcloud con PostgreSQL (solo la primera vez)
+  when: not (nube_estado.stdout | from_json).installed
+  ansible.builtin.command:
+    argv: [runuser, -u, www-data, --, php, "{{ nube_dir }}/occ", maintenance:install,
+           --database, pgsql, --database-host, "{{ intranet_bd_host }}", --database-name, nextcloud,
+           --database-user, nextcloud, --database-pass, "{{ vault_postgresql.nextcloud }}",
+           --admin-user, "{{ nube_admin }}", --admin-pass, "{{ vault_intranet.nube_admin_clave }}",
+           --data-dir, "{{ nube_dir_datos }}"]
+  no_log: true
+  changed_when: true
+
+# Los ajustes van en un fichero aparte (config/nosub.config.php): Nextcloud lo lee después de config.php
+# y sus valores mandan. Así Ansible no toca el config.php que escribe el propio Nextcloud.
+- name: Ajustes de Nextcloud (nombres permitidos, idioma, caché)
+  ansible.builtin.template: { src: nextcloud-nosub.config.php.j2, dest: "{{ nube_dir }}/config/nosub.config.php", owner: www-data, group: www-data, mode: "0640" }
+
+- name: Tareas de fondo de Nextcloud con un temporizador (cada 5 minutos)
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.nombre }}"
+    content: "{{ item.contenido }}"
+    mode: "0644"
+  loop:
+    - nombre: nextcloud-tareas.service
+      contenido: |
+        # Gestionado por Ansible (nosub-infra/roles/intranet)
+        [Unit]
+        Description=Nextcloud: tareas de fondo
+        [Service]
+        Type=oneshot
+        User=www-data
+        ExecStart=/usr/bin/php -f {{ nube_dir }}/cron.php
+    - nombre: nextcloud-tareas.timer
+      contenido: |
+        # Gestionado por Ansible (nosub-infra/roles/intranet)
+        [Unit]
+        Description=Nextcloud: tareas de fondo cada 5 minutos
+        [Timer]
+        OnBootSec=5min
+        OnUnitActiveSec=5min
+        [Install]
+        WantedBy=timers.target
+  loop_control: { label: "{{ item.nombre }}" }
+
+- name: Activar el temporizador
+  ansible.builtin.systemd: { name: nextcloud-tareas.timer, state: started, enabled: true, daemon_reload: true }
+
+- name: ¿Cómo lanza Nextcloud sus tareas de fondo?
+  ansible.builtin.command: runuser -u www-data -- php {{ nube_dir }}/occ config:app:get core backgroundjobs_mode
+  register: nube_modo_tareas
+  changed_when: false
+  failed_when: false
+
+- name: Que use el temporizador (modo "cron") en vez de lanzarlas al abrir páginas
+  when: nube_modo_tareas.stdout != 'cron'
+  ansible.builtin.command: runuser -u www-data -- php {{ nube_dir }}/occ background:cron
+  changed_when: true
+
+# ---------- 3. nginx delante de Nextcloud ----------
+- name: Web de Nextcloud en nginx
+  ansible.builtin.template: { src: nextcloud-nginx.conf.j2, dest: /etc/nginx/sites-available/nextcloud, mode: "0644" }
+  notify: Recargar nginx
+
+- name: Activarla y quitar la página de ejemplo de nginx
+  ansible.builtin.file: { path: "/etc/nginx/sites-enabled/{{ item.nombre }}", state: "{{ item.estado }}", src: "{{ item.src | default(omit) }}" }
+  loop:
+    - { nombre: nextcloud, estado: link, src: /etc/nginx/sites-available/nextcloud }
+    - { nombre: default, estado: absent }
+  loop_control: { label: "{{ item.nombre }}" }
+  notify: Recargar nginx
+
+- name: Comprobar la configuración de nginx
+  ansible.builtin.command: nginx -t
+  changed_when: false
+
+- name: Arrancar nginx y PHP y que arranquen solos
+  ansible.builtin.systemd: { name: "{{ item }}", state: started, enabled: true }
+  loop: [nginx, "php{{ nube_php }}-fpm"]
+
+- name: Aplicar ya los cambios pendientes
+  ansible.builtin.meta: flush_handlers
+
+- name: Comprobar que Nextcloud responde
+  ansible.builtin.uri: { url: "http://127.0.0.1/status.php", return_content: true }
+  register: nube_salud
+  until: nube_salud.status == 200 and (nube_salud.json.installed | default(false))
+  retries: 15
+  delay: 2

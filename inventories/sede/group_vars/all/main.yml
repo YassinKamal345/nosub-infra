@@ -23,11 +23,13 @@ contenedores:
   - { vmid: 221, nombre: red-int, vlan: 20, ip: 10.10.20.11, descripcion: "Bind9 + Kea DHCP + Squid" }
   - { vmid: 222, nombre: bbdd, vlan: 20, ip: 10.10.20.12, so: rocky, ram: 1024, disco: 16, descripcion: "PostgreSQL" }
   - { vmid: 223, nombre: monitor, vlan: 20, ip: 10.10.20.13, ram: 1024, disco: 16, descripcion: "Prometheus + Grafana" }
-  # - { vmid: 224, nombre: intranet, vlan: 20, ip: 10.10.20.14, descripcion: "Intranet" }
-  # - { vmid: 230, nombre: traefik,  vlan: 30, ip: 10.10.30.10, descripcion: "Traefik + extranet" }
+  - { vmid: 224, nombre: intranet, vlan: 20, ip: 10.10.20.14, nucleos: 2, ram: 1536, disco: 20, descripcion: "Intranet: Wiki.js + Nextcloud" }
+  - { vmid: 230, nombre: extranet, vlan: 30, ip: 10.10.30.10, descripcion: "Extranet (portal de clientes) + Traefik" }
 
 # Solo en el laboratorio (prx): nombres de la página de inicio personal (Caddy en el CT 103, a través
 # del puente prx-sede-*). En la centralita se quitan o se cambian por los de Bind9.
 opnsense_nombres_web: [opnsense.yk.internal]
 gitea_url: http://gitea.yk.internal/
 grafana_url: http://grafana.yk.internal/
+wiki_nombres_web: [wiki.yk.internal]
+nube_nombres_web: [nube.yk.internal]

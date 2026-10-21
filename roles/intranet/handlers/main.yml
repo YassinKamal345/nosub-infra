@@ -1,0 +1,8 @@
+- name: Reiniciar Wiki.js
+  ansible.builtin.systemd: { name: wikijs, state: restarted, daemon_reload: true }
+
+- name: Reiniciar PHP
+  ansible.builtin.systemd: { name: "php{{ nube_php }}-fpm", state: restarted }
+
+- name: Recargar nginx
+  ansible.builtin.systemd: { name: nginx, state: reloaded }

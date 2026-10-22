@@ -13,3 +13,43 @@
 
 - name: Arrancar Kea y que arranque solo
   ansible.builtin.systemd: { name: kea-dhcp4-server, state: started, enabled: true }
+
+# Kea puede seguir "activo" sin escuchar (pasó tras un corte de luz). Prometheus no puede probar un DHCP de verdad,
+# así que cada minuto se mira si hay alguien en el puerto 67 y se le deja el dato (aviso DhcpSinEscuchar).
+- name: Comprobación de que Kea escucha (script, servicio y temporizador)
+  ansible.builtin.copy:
+    dest: "{{ item.f }}"
+    mode: "{{ item.m }}"
+    content: "{{ item.c }}"
+  loop:
+    - f: /usr/local/sbin/nosub-dhcp-escucha
+      m: "0755"
+      c: |
+        #!/bin/sh
+        # Gestionado por Ansible (nosub-infra, rol kea_dhcp): 1 si Kea escucha en el puerto 67 (para Prometheus)
+        n=0; ss -Hulpn 'sport = :67' | grep -q kea-dhcp4 && n=1
+        printf '# HELP nosub_dhcp_escuchando 1 si Kea escucha en el puerto 67\n# TYPE nosub_dhcp_escuchando gauge\nnosub_dhcp_escuchando %s\n' $n > /var/lib/node_exporter/dhcp.prom.$$
+        mv /var/lib/node_exporter/dhcp.prom.$$ /var/lib/node_exporter/dhcp.prom
+    - f: /etc/systemd/system/nosub-dhcp-escucha.service
+      m: "0644"
+      c: |
+        [Unit]
+        Description=¿Escucha Kea en el puerto 67? (para Prometheus; nosub-infra)
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/nosub-dhcp-escucha
+    - f: /etc/systemd/system/nosub-dhcp-escucha.timer
+      m: "0644"
+      c: |
+        [Unit]
+        Description=¿Escucha Kea?, cada minuto (nosub-infra)
+        [Timer]
+        OnBootSec=1min
+        OnUnitActiveSec=1min
+        [Install]
+        WantedBy=timers.target
+  loop_control: { label: "{{ item.f }}" }
+  register: r_dhcp_escucha
+
+- name: Activar la comprobación
+  ansible.builtin.systemd: { name: nosub-dhcp-escucha.timer, state: started, enabled: true, daemon_reload: "{{ r_dhcp_escucha.changed }}" }

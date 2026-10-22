@@ -73,7 +73,7 @@ NoSub puede entrar en la caja para darle soporte, así que respecto a lo que hay
 |---|---|---|---|---|
 | Oracle Cloud (VPS) | Página de estado, entrada de la VPN y copias externas | Copias de seguridad **cifradas** (Oracle no puede leerlas: la clave está en el Vault de la sede); IP de quien se conecta a la VPN | Región de la UE (a elegir al crear la VM) | Cifrado (restic), solo añadir |
 | GitHub | Copia del repositorio `nosub-infra` | **Ninguno de clientes reales** (regla: los datos de clientes viven en la base de datos, no en Git). Los secretos van cifrados (Vault) | EE. UU. (Data Privacy Framework) | Repositorio privado, token limitado |
-| ntfy.sh | Avisos al móvil del administrador | Nombres de equipos y servicios; en el aviso `CajaSinConexion`, el nombre de la caja y el usuario del cliente | EE. UU. | Canal con nombre secreto. Pendiente: avisos sin nombres de clientes o ntfy propio en el VPS (apartado 6) |
+| ntfy.sh | Avisos al móvil del administrador | Solo nombres de equipos y servicios de la sede. El aviso de una caja caída no dice de qué cliente es (se mira en Grafana) | EE. UU. | Canal con nombre secreto; avisos sin datos de clientes |
 
 ## 4. Plazos de conservación
 
@@ -109,7 +109,7 @@ AEPD en 72 horas si afecta a datos personales, y a los clientes si el riesgo es 
 Pendiente:
 1. **Caducidad de las copias externas** (restic): borrar desde el VPS las de más de 3 meses. Desde la sede no se
    puede a propósito (modo solo añadir).
-2. **Avisos sin nombres de clientes** a ntfy.sh, o un servidor ntfy propio en el VPS.
+2. ~~Avisos sin nombres de clientes a ntfy.sh~~ (hecho 2026-10-22).
 3. **En producción**, los clientes se dan de alta desde una herramienta de gestión, no en el repositorio:
    hoy `extranet_clientes` (con nombre y correo) está en Git porque son clientes de prueba.
 4. **Contrato con cada cliente** con las cláusulas de encargo del artículo 28 (apartado T3).

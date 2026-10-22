@@ -11,12 +11,17 @@ groups:
         expr: up{job="cajas"} == 0
         for: 5m
         labels: { gravedad: aviso }
-        annotations: { resumen: "La caja {{ '{{' }} $labels.nombre {{ '}}' }} ({{ '{{' }} $labels.cliente {{ '}}' }}) no responde por la VPN desde hace 5 minutos" }
+        annotations: { resumen: "Una caja de cliente no responde por la VPN desde hace 5 minutos (cuál, en Grafana)" }   # sin nombres: el aviso sale a ntfy.sh (RGPD)
       - alert: ServicioCaido
         expr: probe_success == 0
         for: 2m
         labels: { gravedad: critica }
         annotations: { resumen: "{{ '{{' }} $labels.servicio {{ '}}' }} no responde como debe" }
+      - alert: DhcpSinEscuchar
+        expr: nosub_dhcp_escuchando == 0
+        for: 2m
+        labels: { gravedad: critica }
+        annotations: { resumen: "El DHCP (Kea) no escucha: los equipos nuevos de la sede no reciben IP" }
       - alert: CertificadoCaducaPronto
         expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 21
         for: 1h

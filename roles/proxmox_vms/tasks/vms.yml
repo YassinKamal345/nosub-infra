@@ -67,7 +67,7 @@
       --cores {{ vm.nucleos }} --memory {{ vm.ram }} --balloon 0 \
       --net0 virtio,bridge={{ vm.puente }},tag={{ vm.vlan }}{% for r in vm.redes_extra | default([]) %} --net{{ loop.index }} virtio,bridge={{ r.puente }},tag={{ r.vlan }}{% endfor %} \
       --scsihw virtio-scsi-single --serial0 socket --vga serial0 --agent 1 \
-      --onboot {{ 1 if vm.al_arrancar | default(true) else 0 }} --startup order={{ vm.arranque }} --tags "sede;vlan{{ vm.vlan }}" \
+      --onboot {{ 1 if vm.al_arrancar | default(true) else 0 }} --startup order={{ vm.arranque }}{{ ',up=' ~ vm.espera if vm.espera is defined else '' }} --tags "sede;vlan{{ vm.vlan }}" \
       --description "{{ vm.descripcion }}. Gestionado por Ansible: nosub-infra/roles/proxmox_vms"
     qm set {{ vm.vmid }} --scsi0 {{ vm.almacen }}:0,import-from={{ vm_dir_imagenes }}/{{ vm_imagenes[vm.so].fichero }},iothread=1,discard=on
     qm resize {{ vm.vmid }} scsi0 {{ vm.disco }}G
@@ -78,6 +78,17 @@
       --cicustom vendor={{ vm_snippets }}:snippets/nosub-vendor.yml
   loop: "{{ vm_existe.results }}"
   loop_control: { label: "{{ item.item.vmid }} {{ item.item.nombre }}" }
+
+- name: Orden de arranque
+  vars:
+    vm: "{{ vm_defecto | combine(item) }}"
+    orden: "order={{ vm.arranque }}{{ ',up=' ~ vm.espera if vm.espera is defined else '' }}"
+  ansible.builtin.shell: |
+    [ "$(qm config {{ vm.vmid }} | sed -n 's/^startup: //p')" = "{{ orden }}" ] || { qm set {{ vm.vmid }} --startup {{ orden }} && echo CAMBIO; }
+  loop: "{{ maquinas_virtuales }}"
+  loop_control: { label: "{{ item.vmid }} {{ item.nombre }}" }
+  register: r_vm_orden
+  changed_when: "'CAMBIO' in r_vm_orden.stdout"
 
 - name: Encenderlas
   ansible.builtin.shell: qm status {{ item.vmid }} | grep -q running || { qm start {{ item.vmid }} && echo CAMBIO; }

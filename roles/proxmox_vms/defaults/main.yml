@@ -36,7 +36,7 @@ ct_defecto:
   disco: 8
   almacen: local-lvm
   puente: vmbr1
-  arranque: 2      # después de OPNsense (orden 1)
+  arranque: 4      # orden al encender Proxmox (ver "Orden de arranque" en inventories/sede/group_vars/all/main.yml)
 
 ct_clave_ssh: /root/.ssh/nosub_ansible.pub   # clave del nodo de control
 ct_zona_horaria: Europe/Madrid
@@ -60,4 +60,4 @@ vm_defecto:
   disco: 20
   almacen: local-lvm
   puente: vmbr1
-  arranque: 2
+  arranque: 5      # las VMs, al final: son las que más tardan y nada depende de ellas

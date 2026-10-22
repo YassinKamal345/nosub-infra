@@ -11,17 +11,36 @@ ui:
   header: "Estado de los servicios de {{ empresa }}"
   description: "Si algo falla, aquí lo verás aunque la sede esté caída."
 
+# Avisos al móvil por ntfy: cuando algo falla varias veces seguidas y cuando se recupera.
+# Es lo que avisa de un corte de luz en la sede (sin SAI, la sede no puede avisar por sí misma).
+alerting:
+  ntfy:
+    url: "{{ cloud_ntfy_servidor }}"
+    topic: "{{ r_ntfy_leido.content | b64decode | trim }}"
+    priority: 4
+    default-alert:
+      send-on-resolved: true
+      failure-threshold: 3
+      success-threshold: 2
+
 endpoints:
   - name: Conexión con la sede
     group: Sede
     url: "icmp://{{ cloud_enlace_ip_sede }}"
     interval: 1m
     conditions: ["[CONNECTED] == true"]
+    alerts:
+      - type: ntfy
+        description: "La sede no responde (¿corte de luz o de Internet?)"
   - name: Portal de clientes
     group: Clientes
     url: "https://portal.{{ dominio_interno }}/salud"
     interval: 2m
     conditions: ["[STATUS] == 200", "[CERTIFICATE_EXPIRATION] > 168h"]
+    alerts:
+      - type: ntfy
+        failure-threshold: 2
+        description: "El portal de clientes no funciona"
 
 external-endpoints:
 {% for l in cloud_latidos %}
@@ -29,4 +48,9 @@ external-endpoints:
     group: {{ l.grupo }}
     token: "{{ cloud_tokens[l.clave] }}"
     heartbeat: { interval: {{ l.cada }} }
+    alerts:
+      - type: ntfy
+        failure-threshold: 1
+        success-threshold: 1
+        description: "No llega: {{ l.nombre }}"
 {% endfor %}

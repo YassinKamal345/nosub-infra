@@ -136,7 +136,7 @@
 # ---------- 5. Página de estado ----------
 - name: Carpetas de la página de estado
   ansible.builtin.file: { path: "{{ cloud_dir }}/{{ item }}", state: directory, mode: "0750" }
-  loop: [gatus, datos, caddy, latidos]
+  loop: [gatus, datos, caddy, latidos, avisos]
 
 - name: Claves de los latidos (se crean aquí; Ansible las lleva a quien avisa)
   ansible.builtin.shell: |
@@ -158,6 +158,19 @@
 - name: Guardarlas para las plantillas (y para los que avisan)
   ansible.builtin.set_fact:
     cloud_tokens: "{{ dict(r_tokens_leidos.results | map(attribute='item.clave') | zip(r_tokens_leidos.results | map(attribute='content') | map('b64decode') | map('trim'))) }}"
+  no_log: true
+
+- name: Canal de avisos de ntfy (se crea aquí una sola vez)
+  ansible.builtin.shell: |
+    f={{ cloud_ntfy_fichero }}
+    [ -s $f ] && exit 0
+    umask 077; python3 -c 'import secrets;print("nosub-" + secrets.token_urlsafe(18))' > $f && echo CAMBIO
+  register: r_ntfy
+  changed_when: "'CAMBIO' in r_ntfy.stdout"
+
+- name: Leer el canal de avisos
+  ansible.builtin.slurp: { src: "{{ cloud_ntfy_fichero }}" }
+  register: r_ntfy_leido
   no_log: true
 
 - name: Certificado de NoSub CA (para comprobar las webs de la sede)

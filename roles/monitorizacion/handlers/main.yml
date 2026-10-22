@@ -5,4 +5,4 @@
 - name: Reiniciar postgres_exporter
   ansible.builtin.systemd: { name: prometheus-postgres-exporter, state: restarted }
 - name: Reiniciar Grafana
-  ansible.builtin.systemd: { name: grafana-server, state: restarted }
+  ansible.builtin.systemd: { name: grafana-server, state: restarted, daemon_reload: true }

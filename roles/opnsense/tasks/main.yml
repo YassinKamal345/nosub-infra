@@ -27,12 +27,18 @@
     qm create {{ opnsense_vmid }} --name opnsense --ostype other --machine q35 --cpu host \
       --cores {{ opnsense_nucleos }} --memory {{ opnsense_ram }} --balloon 0 \
       --net0 virtio,bridge={{ opnsense_puente_troncal }} --net1 virtio,bridge={{ opnsense_puente_wan }}{{ ",tag=" ~ opnsense_wan_vlan if opnsense_wan_vlan else "" }} \
-      --scsihw virtio-scsi-single --serial0 socket --vga std --onboot 1 --startup order=1 \
+      --scsihw virtio-scsi-single --serial0 socket --vga std --onboot 1 --startup {{ opnsense_arranque }} \
       --tags sede,firewall --description "Firewall de la sede NoSub (OPNsense {{ opnsense_version }}). Gestionado por Ansible: nosub-infra/roles/opnsense"
     qm importdisk {{ opnsense_vmid }} {{ opnsense_dir_imagen }}/OPNsense-{{ opnsense_version }}-nano-amd64.img {{ opnsense_almacen }} --format raw
     qm set {{ opnsense_vmid }} --scsi0 {{ opnsense_almacen }}:vm-{{ opnsense_vmid }}-disk-0,iothread=1,discard=on --boot order=scsi0
     qm resize {{ opnsense_vmid }} scsi0 {{ opnsense_disco }}
   changed_when: true
+
+- name: Orden de arranque (la primera; las demás esperan a la red)
+  ansible.builtin.shell: |
+    [ "$(qm config {{ opnsense_vmid }} | sed -n 's/^startup: //p')" = "{{ opnsense_arranque }}" ] || { qm set {{ opnsense_vmid }} --startup {{ opnsense_arranque }} && echo CAMBIO; }
+  register: r_orden
+  changed_when: "'CAMBIO' in r_orden.stdout"
 
 - name: Encenderla si está apagada
   ansible.builtin.shell: qm status {{ opnsense_vmid }} | grep -q running || qm start {{ opnsense_vmid }}

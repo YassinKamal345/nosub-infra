@@ -7,6 +7,8 @@ opnsense_almacen: local-lvm
 opnsense_nucleos: 2
 opnsense_ram: 1536
 opnsense_disco: 8G
+# Arranca la primera al encender Proxmox; las demás esperan a que la red esté lista (tarda unos 45 s)
+opnsense_arranque: "order=1,up=45"
 opnsense_puente_troncal: vmbr1   # vtnet0: VLANs de la sede
 opnsense_puente_wan: vmbr2       # vtnet1: salida a Internet
 opnsense_wan_vlan: ""            # en el centro: puente vmbr1 y VLAN 99 (enlace con R1, ver docs/red.md)

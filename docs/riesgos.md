@@ -66,7 +66,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 | M5 | **Secretos cifrados** con Ansible Vault; la contraseña del Vault no está en el repositorio. Las claves privadas de WireGuard de las cajas se crean en la propia caja y nunca salen de ella | `vault.yml`, rol `caja` |
 | M6 | **Copias externas** con restic al VPS: cifradas y en modo solo añadir (desde la sede no se pueden borrar, probado: 403). Copia diaria de PostgreSQL | roles `copias_externas`, `postgresql` |
 | M7 | **Reconstrucción probada**: la sede entera se rehace desde cero en 11 minutos (prueba del 2026-10-21) | `playbooks/sede.yml` |
-| M8 | **Monitorización**: Prometheus y Grafana con alertas (equipo caído, servicio caído, caja sin conexión, disco y memoria casi llenos, certificado a punto de caducar) y página de estado externa en el cloud (Gatus) | roles `monitorizacion`, `cloud` |
+| M8 | **Monitorización**: Prometheus y Grafana con alertas (equipo caído, servicio caído, caja sin conexión, disco y memoria casi llenos, certificado a punto de caducar) y página de estado externa en el cloud (Gatus), que avisa al móvil por ntfy si la sede, el portal, el latido o las copias fallan | roles `monitorizacion`, `cloud` |
 | M9 | **HTTPS con CA propia** ("NoSub CA", limitada a `nosub.lan` y `10.10.0.0/16`); los certificados se renuevan solos cuando les quedan menos de 30 días | rol `traefik` |
 | M10 | **Acceso de administración solo con clave SSH** (root no puede entrar con contraseña) y solo desde gestión o la VPN de administración. Usuario de Ansible en Proxmox con permisos limitados (rol `NoSubAnsible`) | roles `proxmox_vms`, `opnsense` |
 | M11 | **Protección del portal**: contraseñas con *scrypt*, protección CSRF en todos los formularios, cookies `Secure`, cabeceras de seguridad en Traefik y la misma respuesta (y el mismo tiempo) tanto si el usuario no existe como si la contraseña es incorrecta | rol `extranet`, rol `traefik` |
@@ -109,10 +109,10 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 |---|---|---|---|---|---|---|
 | RS-13 | Ransomware o borrado malicioso de los datos | 1 | 3 | 🟡 3 | Reducir: M6 (copia fuera de la sede, cifrada y que no se puede borrar desde la sede) | — |
 | RS-14 | Avería del servidor físico o de su disco (Proxmox es un único equipo) | 2 | 3 | 🔴 6 | Reducir: M7 (todo se rehace en minutos en otro equipo con Proxmox) y M6. Aceptar el resto: un segundo servidor no se justifica para una empresa de este tamaño | Que la copia local (vzdump) no esté solo en el mismo disco: **disco USB o NAS**. Probarlo en el simulacro de la fase 5 |
-| RS-15 | Corte de luz | 2 | 2 | 🟡 4 | Reducir: los servicios arrancan solos al volver la luz, en orden | **SAI** para la centralita y los equipos de red, con apagado ordenado |
+| RS-15 | Corte de luz. **La centralita no tiene SAI**: se apaga de golpe | 2 | 2 | 🟡 4 | Aceptar el corte (no hay SAI) y reducir el daño: (1) **vuelve sola y en orden**: Proxmox enciende OPNsense, espera 45 s, luego DNS/DHCP, PostgreSQL y el resto (`arranque`/`espera` en el inventario); (2) **los servicios reintentan** si la base de datos aún no está (Gitea, Wiki.js, extranet, Grafana: `Restart=always`); (3) **nada se corrompe sin remedio**: ext4 con diario, PostgreSQL con su registro (WAL) y copias diarias (M6); (4) **avisa el VPS del cloud**, que está fuera: si la sede no responde 3 minutos llega un aviso al móvil (ntfy) y otro cuando vuelve | **BIOS de la centralita: encender al volver la corriente** (si no, se queda apagada). Comprobarlo con un corte simulado |
 | RS-16 | Cae OPNsense y la sede se queda sin red | 1 | 3 | 🟡 3 | Reducir: su configuración está en Git y se rehace en menos de 2 minutos (M4, M7) | — |
 | RS-17 | Se pierde la contraseña del Vault: los secretos quedan inaccesibles | 1 | 3 | 🟡 3 | Reducir: guardarla también en un gestor de contraseñas fuera del servidor | **Confirmar** que está guardada en el gestor de contraseñas |
-| RS-18 | Algo falla y nadie se entera a tiempo | 3 | 2 | 🔴 6 | Reducir: M8 (las alertas se ven en Grafana y en la página de estado del cloud) | **Avisos por correo o ntfy** cuando salta una alerta (hoy solo se ven si alguien mira el panel) |
+| RS-18 | Algo falla y nadie se entera a tiempo | 2 | 2 | 🟡 4 | Reducir: M8. Lo gordo (sede caída, portal caído, sin latido, sin copias) ya avisa al móvil desde el cloud | **Avisos de las alertas de Prometheus** (disco, memoria, un servicio interno caído): hoy solo se ven en Grafana |
 | RS-19 | Un servicio externo deja de estar disponible (VPS del cloud, GitHub) | 2 | 1 | 🟢 2 | Aceptar: la sede funciona sin ellos. Gitea es el repositorio principal; GitHub solo es una copia | — |
 
 ### 4.5 Red física y personas
@@ -131,17 +131,17 @@ Lo pendiente, en orden. Las tareas técnicas se hacen como el resto: un rol o un
 | Prioridad | Acción | Riesgos | Cuándo |
 |---|---|---|---|
 | 1 | Cambiar las contraseñas de laboratorio por otras aleatorias del Vault | RS-05 | Antes de montar la centralita |
-| 2 | Avisos de las alertas por correo o ntfy (Alertmanager) | RS-18 | Fase 5 |
+| 2 | Avisos de las alertas de Prometheus por ntfy (Alertmanager); los del cloud ya funcionan | RS-18 | Fase 5 |
 | 3 | Actualizaciones automáticas de seguridad en todos los servidores | RS-09, RS-02 | Fase 5 |
 | 4 | Límite de intentos en el inicio de sesión del portal | RS-01 | Antes de publicar el portal en Internet |
 | 5 | Segundo factor (TOTP) en Proxmox y OPNsense y SSH sin contraseña en todos los servidores | RS-07 | Fase 5 |
 | 6 | Copia vzdump en un disco USB o NAS, además del disco del servidor | RS-14 | Al montar la centralita |
-| 7 | SAI para la centralita y la red | RS-15 | Depende del centro |
+| 7 | BIOS de la centralita: encender al volver la corriente; prueba de corte simulado | RS-15 | Al montar la centralita (la prueba, ya en el laboratorio) |
 | 8 | Contraseña del Vault en el gestor de contraseñas | RS-17 | Ya |
 | 9 | Procedimientos de baja (teletrabajador, caja) en el plan de contingencia | RS-06, RS-22 | Fase 5 |
 | 10 | Registro de tratamiento de datos (RGPD) | RS-23 | Fase 5 |
 
-Con las acciones 1 a 6 hechas, ningún riesgo queda en 🔴 alto.
+Con las acciones 1, 3, 5 y 6 hechas, ningún riesgo queda en 🔴 alto.
 
 ## 6. Revisión
 

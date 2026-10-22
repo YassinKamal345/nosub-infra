@@ -14,6 +14,11 @@ cloud_wg_publica_sede: "{{ vault_wg_privadas['servidor'] | wg_derivar('enlace-cl
 cloud_gatus_imagen: docker.io/twinproduction/gatus:v5.37.0
 cloud_caddy_imagen: docker.io/library/caddy:2.11.7-alpine
 cloud_gatus_puerto: 8080              # solo en 127.0.0.1: desde fuera se entra por Caddy (HTTPS)
+# Avisos al móvil (ntfy). Sin SAI en la sede, un corte de luz la apaga entera y no puede avisar:
+# avisa el VPS, que está fuera. El nombre del canal se crea en el VPS (es secreto: quien lo sabe, lee los avisos).
+# Para recibirlos: app ntfy → suscribirse a ese canal (ver docs/contingencia.md)
+cloud_ntfy_servidor: https://ntfy.sh
+cloud_ntfy_fichero: "{{ cloud_dir }}/avisos/canal-ntfy"
 
 # Copias externas: rest-server (binario oficial, comprobado con su sha256). Solo escucha en el enlace,
 # en modo "solo añadir": desde la sede se pueden hacer copias, pero no borrarlas.

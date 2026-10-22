@@ -116,6 +116,23 @@
   ansible.builtin.copy: { src: "paneles/{{ item }}", dest: "{{ grafana_dir_paneles }}/{{ item }}", owner: root, group: grafana, mode: "0640" }
   loop: [admin.json, nodos.json]
 
+# Tras un corte de luz, Grafana puede arrancar antes que PostgreSQL: que lo reintente hasta que esté
+- name: Carpeta de ajustes del servicio de Grafana
+  ansible.builtin.file: { path: /etc/systemd/system/grafana-server.service.d, state: directory, mode: "0755" }
+
+- name: Grafana se reintenta si no llega a la base de datos
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/grafana-server.service.d/nosub.conf
+    mode: "0644"
+    content: |
+      # Gestionado por Ansible (nosub-infra/roles/monitorizacion)
+      [Unit]
+      StartLimitIntervalSec=0
+      [Service]
+      Restart=always
+      RestartSec=10
+  notify: Reiniciar Grafana
+
 - name: Arrancar Grafana y que arranque sola
   ansible.builtin.systemd: { name: grafana-server, state: started, enabled: true }
 

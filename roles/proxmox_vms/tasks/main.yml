@@ -76,13 +76,25 @@
     unprivileged: true
     features: [nesting=1]
     onboot: true
-    startup: ["order={{ ct.arranque }}"]
+    startup: ["order={{ ct.arranque }}{{ ',up=' ~ ct.espera if ct.espera is defined else '' }}"]
     tags: "{{ ['sede', 'vlan' ~ ct.vlan] + (ct.etiquetas | default([])) }}"
     description: "{{ ct.descripcion }}. Gestionado por Ansible: nosub-infra/roles/proxmox_vms"
     state: present
     update: false
   loop: "{{ contenedores }}"
   loop_control: { label: "{{ item.vmid }} {{ item.nombre }} {{ item.ip }}" }
+
+# El módulo no cambia los contenedores que ya existen (update: false): el orden se ajusta aparte
+- name: Orden de arranque
+  vars:
+    ct: "{{ ct_defecto | combine(item) }}"
+    orden: "order={{ ct.arranque }}{{ ',up=' ~ ct.espera if ct.espera is defined else '' }}"
+  ansible.builtin.shell: |
+    [ "$(pct config {{ ct.vmid }} | sed -n 's/^startup: //p')" = "{{ orden }}" ] || { pct set {{ ct.vmid }} --startup {{ orden }} && echo CAMBIO; }
+  loop: "{{ contenedores }}"
+  loop_control: { label: "{{ item.vmid }} {{ item.nombre }}" }
+  register: r_orden
+  changed_when: "'CAMBIO' in r_orden.stdout"
 
 - name: Encenderlos
   ansible.builtin.shell: pct status {{ item.vmid }} | grep -q running || { pct start {{ item.vmid }} && echo CAMBIO; }

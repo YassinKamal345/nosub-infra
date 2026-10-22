@@ -267,7 +267,8 @@ Después de cualquier recuperación:
 ## 7. Mantener el plan vivo
 
 - **Simulacros:** una vez al año como mínimo, y siempre antes de la puesta en producción:
-  - Restaurar una base de datos y unos ficheros desde restic y desde vzdump (fase 5.3).
+  - Restaurar una base de datos y unos ficheros desde restic y desde vzdump: `scripts/simulacro-restauracion.sh`
+    (hecho el 2026-10-22: 14/14 bien, 1 minuto; acta en `docs/simulacro.md`).
   - Corte de luz simulado (apagar la sede de golpe y ver que vuelve sola y en orden).
   - Reconstrucción de la sede desde cero (hecha el 2026-10-21: 11 minutos, sin errores).
 - **Revisión:** cada 6 meses, junto con el plan de riesgos, y después de cada incidente.

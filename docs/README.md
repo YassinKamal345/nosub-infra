@@ -4,3 +4,4 @@
 - `red.md` — diseño de red lógico y físico: VLANs, direcciones, planos y conexiones
 - `riesgos.md` — plan de riesgos (fase 5)
 - `contingencia.md` — plan de contingencia (fase 5)
+- `simulacro.md` — acta del simulacro de restauración (fase 5)

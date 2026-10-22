@@ -69,4 +69,5 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
   las 8 máquinas de la sede, aviso al móvil a los 2-3 min, arranque en orden y aviso de resuelto; todo arriba en 3 min.
   11/11 a la tercera: los dos primeros intentos destaparon un fallo real (node_exporter se rendía si arrancaba antes
   de tener IP), ya corregido
-- [ ] 5.4 Material para la defensa
+- [x] 5.4 Material para la defensa: `README.md` como puerta de entrada (requisitos → dónde se cumplen), guion y
+  demostración en `docs/defensa.md` (estructura, demo de 8 pasos con plan B, preguntas probables) y presentación

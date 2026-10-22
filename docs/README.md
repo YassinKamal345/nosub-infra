@@ -6,3 +6,4 @@
 - `contingencia.md` — plan de contingencia (fase 5)
 - `rgpd.md` — protección de datos: registro de tratamientos, plazos y derechos (fase 5)
 - `simulacro.md` — actas de los simulacros: restauración de copias y corte de luz (fase 5)
+- `defensa.md` — guion de la defensa, demostración y preguntas probables (fase 5)

@@ -1,0 +1,16 @@
+# La caja de verdad: un mini PC (N100) con Proxmox, y dentro un contenedor Debian que es la caja.
+# Cada caja con "minipc:" en inventories/cajas/hosts.yml:
+#   ip:            IP del Proxmox del mini PC mientras se prepara en la sede (VLAN 60, fuera del DHCP: .20-.99)
+#   vmid:          número del contenedor de la caja (por defecto 100)
+#   puente:        bridge del mini PC donde está su tarjeta de red (por defecto vmbr0)
+#   ip_casa:       IP fija del propio mini PC en casa del cliente (la de la caja es ip_casa de la caja)
+#   puerta_casa:   router de casa (por defecto, la .1 de red_casa)
+# Antes: Proxmox instalado en el mini PC y la clave de Ansible en su root (ssh-copy-id; ver roles/caja_minipc/README.md)
+caja_minipc_almacen: local-lvm
+caja_minipc_plantilla_patron: "debian-13-standard_.*_amd64"   # la más nueva de pveam que encaje
+caja_minipc_recursos: { vmid: 100, puente: vmbr0, nucleos: 2, ram: 1024, disco: 12 }
+caja_minipc_vlan_preparacion: 60
+caja_minipc_dns: 9.9.9.9                   # DNS mientras no hay AdGuard (en casa, el router no da DNS)
+caja_minipc_clave_ssh: /root/.ssh/nosub_ansible.pub
+caja_minipc_zona_horaria: Europe/Madrid
+caja_minipc_apagar_al_entregar: true       # caja_entregar.yml apaga el mini PC para llevarlo a casa

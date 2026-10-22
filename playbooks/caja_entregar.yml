@@ -1,0 +1,33 @@
+# Deja una caja de verdad (mini PC) lista para llevarla a casa del cliente, después de caja_nueva.yml:
+#   ansible-playbook playbooks/caja_entregar.yml -e caja=<nombre>
+# El contenedor de la caja y el propio mini PC pasan a sus IPs de casa (ip_casa de la caja y minipc.ip_casa) y el
+# mini PC se apaga en un minuto. En casa: enchufarlo al router y encenderlo; la caja abre el túnel sola.
+# Comprobar después, desde la sede: ansible <caja> -m ping   (por la VPN)
+- name: Comprobar la caja pedida
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Tiene que estar en inventories/cajas y tener mini PC
+      ansible.builtin.assert:
+        that: caja is defined and caja in groups['cajas'] and hostvars[caja].minipc is defined
+        fail_msg: "Uso: ansible-playbook playbooks/caja_entregar.yml -e caja=<nombre> (solo cajas con 'minipc' en inventories/cajas/hosts.yml)"
+    - name: Añadir el mini PC de la caja a esta ejecución
+      ansible.builtin.add_host:
+        name: "{{ caja }}-minipc"
+        groups: minipcs
+        ansible_host: "{{ hostvars[caja].minipc.ip }}"
+        ansible_user: root
+        ansible_ssh_private_key_file: "{{ hostvars[caja].minipc.clave_ssh | default('~/.ssh/nosub_ansible') }}"
+
+- name: Preparar el mini PC para casa del cliente
+  hosts: minipcs
+  gather_facts: false
+  tasks:
+    - name: Cambiar a las IPs de casa y apagar
+      ansible.builtin.include_role: { name: caja_minipc, tasks_from: entregar }
+    - name: Qué hacer ahora
+      ansible.builtin.debug:
+        msg: >-
+          {{ caja }} lista. {{ 'El mini PC se apaga en un minuto. ' if caja_minipc_apagar_al_entregar | bool else '' }}En casa:
+          enchufarlo al router, encenderlo y poner {{ hostvars[caja].ip_casa }} como DNS en el DHCP del router.
+          Después, desde la sede: ansible {{ caja }} -m ping

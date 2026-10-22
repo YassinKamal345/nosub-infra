@@ -1,0 +1,82 @@
+# Crea (si falta) en el Proxmox del mini PC el contenedor que es la caja, en la VLAN 60 de la sede.
+# Se ejecuta EN el mini PC (playbooks/caja_nueva.yml lo añade al inventario como <caja>-minipc).
+- ansible.builtin.import_tasks: datos.yml
+
+- name: ¿Existe ya el contenedor?
+  ansible.builtin.stat: { path: "/etc/pve/lxc/{{ m.vmid }}.conf" }
+  register: ct_conf
+
+- name: Si ya tiene la IP de casa, esto no es una caja nueva
+  when: ct_conf.stat.exists
+  ansible.builtin.shell: pct config {{ m.vmid }} | grep -q 'ip={{ c.ip_casa }}/'
+  register: ya_entregada
+  changed_when: false
+  failed_when: false
+
+- name: Parar si ya está entregada
+  when: ct_conf.stat.exists and ya_entregada.rc == 0
+  ansible.builtin.fail:
+    msg: "{{ caja }} ya está preparada para casa del cliente. Para cambiarla, usa playbooks/actualizar_cajas.yml"
+
+- name: Plantilla de Debian 13 más nueva
+  when: not ct_conf.stat.exists
+  ansible.builtin.shell: pveam update >/dev/null; pveam available --section system | awk '{print $2}' | grep -E '^{{ caja_minipc_plantilla_patron }}' | sort -V | tail -1
+  register: r_plantilla
+  changed_when: false
+  failed_when: r_plantilla.stdout | length == 0
+
+- name: Descargarla si falta
+  when: not ct_conf.stat.exists
+  ansible.builtin.shell: pveam list local | grep -q '{{ r_plantilla.stdout }}' || { pveam download local {{ r_plantilla.stdout }} && echo CAMBIO; }
+  register: r_descarga
+  changed_when: "'CAMBIO' in r_descarga.stdout"
+
+- name: Clave de Ansible para el contenedor
+  ansible.builtin.copy: { src: "{{ caja_minipc_clave_ssh }}", dest: /root/nosub_ansible.pub, mode: "0644" }
+
+- name: Crear el contenedor de la caja
+  when: not ct_conf.stat.exists
+  vars:
+    puerta: "{{ vlan_prep.red | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}"
+  # Docker (las apps) dentro de un contenedor necesita nesting y keyctl
+  ansible.builtin.command: >-
+    pct create {{ m.vmid }} local:vztmpl/{{ r_plantilla.stdout }}
+    --hostname {{ caja }} --cores {{ m.nucleos }} --memory {{ m.ram }} --swap 512
+    --rootfs {{ caja_minipc_almacen }}:{{ m.disco }}
+    --net0 name=eth0,bridge={{ m.puente }}{{ (',tag=' ~ m.vlan) if m.vlan is defined else '' }},ip={{ c.ip_preparacion }}/{{ vlan_prep.red | ansible.utils.ipaddr('prefix') }},gw={{ puerta }}
+    --nameserver {{ caja_minipc_dns }} --searchdomain lan
+    --ssh-public-keys /root/nosub_ansible.pub --timezone {{ caja_minipc_zona_horaria }}
+    --unprivileged 1 --features nesting=1,keyctl=1 --onboot 1
+    --tags "caja;{{ c.cliente }}"
+    --description "Caja {{ caja }} del cliente {{ c.cliente }}. Gestionado por Ansible: nosub-infra/roles/caja_minipc"
+  changed_when: true
+
+- name: Encenderlo
+  ansible.builtin.shell: pct status {{ m.vmid }} | grep -q running || { pct start {{ m.vmid }} && echo CAMBIO; }
+  register: r_arranque
+  changed_when: "'CAMBIO' in r_arranque.stdout"
+
+- name: Que se presente al firewall
+  ansible.builtin.command: pct exec {{ m.vmid }} -- ping -c1 -W2 {{ vlan_prep.red | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}
+  register: r_ping
+  until: r_ping.rc == 0
+  retries: 10
+  delay: 2
+  changed_when: false
+
+- name: Esperar a que responda por SSH (desde el nodo de control)
+  ansible.builtin.wait_for: { host: "{{ c.ip_preparacion }}", port: 22, timeout: 120 }
+  delegate_to: localhost
+
+- name: Leer su clave SSH (desde dentro, no por la red)
+  ansible.builtin.command: pct exec {{ m.vmid }} -- cat /etc/ssh/ssh_host_ed25519_key.pub
+  register: clave_host
+  changed_when: false
+
+- name: Apuntarla en known_hosts del nodo de control (con la IP de preparación y con la de la VPN)
+  ansible.builtin.known_hosts:
+    path: /root/.ssh/known_hosts
+    name: "{{ item }}"
+    key: "{{ item }} {{ clave_host.stdout.split()[:2] | join(' ') }}"
+  loop: ["{{ c.ip_preparacion }}", "{{ c.ip_vpn }}"]
+  delegate_to: localhost

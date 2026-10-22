@@ -2,7 +2,9 @@
 #   1. añadir la caja a inventories/cajas/hosts.yml
 #   2. ansible-playbook playbooks/caja_nueva.yml -e caja=<nombre>
 # La caja se prepara en la VLAN 60 de la sede, se da de alta en la VPN, la monitorización y la extranet,
-# y se lleva a casa del cliente, desde donde abre el túnel. En el laboratorio, la caja es un contenedor de prx.
+# y se lleva a casa del cliente, desde donde abre el túnel. En el laboratorio, la caja es un contenedor de prx;
+# con un mini PC de verdad ("minipc" en el inventario), el contenedor se crea en su Proxmox y después se lleva a
+# casa con playbooks/caja_entregar.yml.
 - name: Comprobar la caja pedida
   hosts: localhost
   gather_facts: false
@@ -11,6 +13,26 @@
       ansible.builtin.assert:
         that: caja is defined and caja in groups['cajas']
         fail_msg: "Uso: ansible-playbook playbooks/caja_nueva.yml -e caja=<nombre> (nombres: {{ groups['cajas'] | join(', ') }})"
+
+- name: Mini PC de verdad - entrar en su Proxmox (cajas con "minipc" en el inventario)
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Añadir el mini PC de la caja a esta ejecución
+      when: hostvars[caja].minipc is defined
+      ansible.builtin.add_host:
+        name: "{{ caja }}-minipc"
+        groups: minipcs
+        ansible_host: "{{ hostvars[caja].minipc.ip }}"
+        ansible_user: root
+        ansible_ssh_private_key_file: "{{ hostvars[caja].minipc.clave_ssh | default('~/.ssh/nosub_ansible') }}"
+
+- name: Mini PC de verdad - crear el contenedor de la caja, en la VLAN 60
+  hosts: minipcs
+  gather_facts: false
+  tasks:
+    - name: Crear la caja dentro del mini PC
+      ansible.builtin.include_role: { name: caja_minipc, tasks_from: crear }
 
 - name: Laboratorio - el mini PC de la caja, en la VLAN 60
   hosts: proxmox

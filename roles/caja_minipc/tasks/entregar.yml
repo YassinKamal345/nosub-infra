@@ -1,0 +1,44 @@
+# Deja el mini PC listo para casa del cliente: el contenedor y el propio Proxmox pasan a las IPs de la casa y el
+# mini PC se apaga. Al enchufarlo en casa arranca con la red buena y la caja abre el túnel sola.
+- ansible.builtin.import_tasks: datos.yml
+
+- name: Router de casa
+  ansible.builtin.set_fact:
+    puerta_casa: "{{ m.puerta_casa | default(c.red_casa | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address')) }}"
+    prefijo_casa: "{{ c.red_casa | ansible.utils.ipaddr('prefix') }}"
+
+- name: La caja, con su IP de casa (se aplica al arrancar en casa)
+  ansible.builtin.shell: |
+    pct config {{ m.vmid }} | grep -q 'ip={{ c.ip_casa }}/' && exit 0
+    pct set {{ m.vmid }} --net0 name=eth0,bridge={{ m.puente_casa | default(m.puente) }},ip={{ c.ip_casa }}/{{ prefijo_casa }},gw={{ puerta_casa }}
+    echo CAMBIO
+  register: r_caja
+  changed_when: "'CAMBIO' in r_caja.stdout"
+
+- name: El mini PC, con su IP de casa (copia de la configuración de red en interfaces.antes-de-casa)
+  when: m.ip_casa is defined
+  block:
+    - name: Copia de la red actual
+      ansible.builtin.copy: { src: /etc/network/interfaces, dest: /etc/network/interfaces.antes-de-casa, remote_src: true, force: false, mode: "0644" }
+    - name: Dirección y puerta de enlace de {{ m.puente }}
+      ansible.builtin.replace:
+        path: /etc/network/interfaces
+        after: "iface {{ m.puente }} inet static"
+        before: "bridge-ports"
+        regexp: "{{ item.re }}"
+        replace: "{{ item.por }}"
+      loop:
+        - { re: '(\n\s*address\s+)\S+', por: '\g<1>{{ m.ip_casa }}/{{ prefijo_casa }}' }
+        - { re: '(\n\s*gateway\s+)\S+', por: '\g<1>{{ puerta_casa }}' }
+      loop_control: { label: "{{ item.re }}" }
+
+- name: Si el mini PC no se apaga, reiniciar ya la caja para que use su IP de casa
+  when: r_caja is changed and not (caja_minipc_apagar_al_entregar | bool)
+  ansible.builtin.command: pct reboot {{ m.vmid }}
+  changed_when: true
+
+- name: Apagar el mini PC en un minuto (para llevarlo a casa)
+  when: caja_minipc_apagar_al_entregar | bool
+  ansible.builtin.command:
+    argv: [shutdown, -h, "+1", "NoSub - caja lista para llevar a casa del cliente"]
+  changed_when: true

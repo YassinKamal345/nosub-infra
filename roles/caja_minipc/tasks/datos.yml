@@ -1,0 +1,5 @@
+- name: Datos de la caja {{ caja }} y de su mini PC
+  ansible.builtin.set_fact:
+    c: "{{ hostvars[caja] }}"
+    m: "{{ caja_minipc_recursos | combine(hostvars[caja].minipc) }}"
+    vlan_prep: "{{ vlans | selectattr('id', 'eq', caja_minipc_vlan_preparacion) | first }}"

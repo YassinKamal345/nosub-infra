@@ -90,7 +90,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 | # | Riesgo | P | I | Nivel | Tratamiento y medidas | Pendiente |
 |---|---|---|---|---|---|---|
 | RS-05 | Contraseñas débiles o de laboratorio que llegan a producción | 3 | 3 | 🔴 9 | Reducir: casi todas las contraseñas son aleatorias y van en el Vault (M5) | **Cambiar las de laboratorio** (p. ej. el usuario web de OPNsense) antes de montar la centralita |
-| RS-06 | Robo o pérdida del portátil de un teletrabajador (con su clave de VPN) | 2 | 2 | 🟡 4 | Reducir: M3 (cada clave es personal y no llega a la administración). Se revoca quitando su clave de la lista y aplicando `sede.yml` | Escribir el procedimiento de baja en el plan de contingencia |
+| RS-06 | Robo o pérdida del portátil de un teletrabajador (con su clave de VPN) | 2 | 2 | 🟡 4 | Reducir: M3 (cada clave es personal y no llega a la administración). Se revoca quitando su clave de la lista y aplicando `sede.yml` (contingencia, E10) | Que Ansible borre también su ficha de OPNsense |
 | RS-07 | Robo de las credenciales de un administrador (su equipo o su clave SSH) | 1 | 3 | 🟡 3 | Reducir: M10, M14 | **Segundo factor (TOTP)** en Proxmox y OPNsense. Desactivar del todo el acceso SSH con contraseña (hoy solo está bloqueado para root) |
 | RS-08 | Fuga de secretos por el repositorio (Gitea o espejo de GitHub) | 1 | 3 | 🟡 3 | Reducir: M5. El repositorio es privado y el token de GitHub solo puede escribir en ese repositorio | — |
 
@@ -111,7 +111,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 | RS-14 | Avería del servidor físico o de su disco (Proxmox es un único equipo) | 2 | 3 | 🔴 6 | Reducir: M7 (todo se rehace en minutos en otro equipo con Proxmox) y M6. Aceptar el resto: un segundo servidor no se justifica para una empresa de este tamaño | Que la copia local (vzdump) no esté solo en el mismo disco: **disco USB o NAS**. Probarlo en el simulacro de la fase 5 |
 | RS-15 | Corte de luz. **La centralita no tiene SAI**: se apaga de golpe | 2 | 2 | 🟡 4 | Aceptar el corte (no hay SAI) y reducir el daño: (1) **vuelve sola y en orden**: Proxmox enciende OPNsense, espera 45 s, luego DNS/DHCP, PostgreSQL y el resto (`arranque`/`espera` en el inventario); (2) **los servicios reintentan** si la base de datos aún no está (Gitea, Wiki.js, extranet, Grafana: `Restart=always`); (3) **nada se corrompe sin remedio**: ext4 con diario, PostgreSQL con su registro (WAL) y copias diarias (M6); (4) **avisa el VPS del cloud**, que está fuera: si la sede no responde 3 minutos llega un aviso al móvil (ntfy) y otro cuando vuelve | **BIOS de la centralita: encender al volver la corriente** (si no, se queda apagada). Comprobarlo con un corte simulado |
 | RS-16 | Cae OPNsense y la sede se queda sin red | 1 | 3 | 🟡 3 | Reducir: su configuración está en Git y se rehace en menos de 2 minutos (M4, M7) | — |
-| RS-17 | Se pierde la contraseña del Vault: los secretos quedan inaccesibles | 1 | 3 | 🟡 3 | Reducir: guardarla también en un gestor de contraseñas fuera del servidor | **Confirmar** que está guardada en el gestor de contraseñas |
+| RS-17 | Se pierde la contraseña del Vault: los secretos quedan inaccesibles | 1 | 3 | 🟡 3 | Reducir: guardada también en el gestor de contraseñas del administrador (comprobada byte a byte el 2026-10-22) | — |
 | RS-18 | Algo falla y nadie se entera a tiempo | 2 | 2 | 🟡 4 | Reducir: M8. Lo gordo (sede caída, portal caído, sin latido, sin copias) ya avisa al móvil desde el cloud | **Avisos de las alertas de Prometheus** (disco, memoria, un servicio interno caído): hoy solo se ven en Grafana |
 | RS-19 | Un servicio externo deja de estar disponible (VPS del cloud, GitHub) | 2 | 1 | 🟢 2 | Aceptar: la sede funciona sin ellos. Gitea es el repositorio principal; GitHub solo es una copia | — |
 
@@ -121,7 +121,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 |---|---|---|---|---|---|---|
 | RS-20 | Alguien enchufa un equipo propio o un switch a un puerto de la oficina | 2 | 2 | 🟡 4 | Reducir: M12 (el puerto se apaga si detecta un switch) y M1 (un puesto solo llega a lo que llegan los empleados) | — |
 | RS-21 | Un invitado de la WiFi intenta llegar a la red interna | 2 | 2 | 🟡 4 | Reducir: la VLAN 50 de invitados solo sale a Internet (M1) | — |
-| RS-22 | Una caja de cliente es manipulada (está en casa del cliente) | 2 | 2 | 🟡 4 | Reducir: M3 (desde la VPN, las cajas no llegan a nada de la sede), cortafuegos propio en la caja. Se da de baja quitando su clave pública del inventario | — |
+| RS-22 | Una caja de cliente es manipulada (está en casa del cliente) | 2 | 2 | 🟡 4 | Reducir: M3 (desde la VPN, las cajas no llegan a nada de la sede), cortafuegos propio en la caja. Se da de baja quitando su clave pública del inventario (contingencia, E11) | Que Ansible la quite también del portal (hoy, a mano) |
 | RS-23 | Fuga de datos personales de clientes (RGPD) | 1 | 3 | 🟡 3 | Reducir: M2, M11, M6. Solo se guardan los datos necesarios (nombre, usuario y correo) | Escribir el registro de tratamiento y cuánto tiempo se guardan los datos |
 
 ## 5. Plan de acción
@@ -137,8 +137,8 @@ Lo pendiente, en orden. Las tareas técnicas se hacen como el resto: un rol o un
 | 5 | Segundo factor (TOTP) en Proxmox y OPNsense y SSH sin contraseña en todos los servidores | RS-07 | Fase 5 |
 | 6 | Copia vzdump en un disco USB o NAS, además del disco del servidor | RS-14 | Al montar la centralita |
 | 7 | BIOS de la centralita: encender al volver la corriente; prueba de corte simulado | RS-15 | Al montar la centralita (la prueba, ya en el laboratorio) |
-| 8 | Contraseña del Vault en el gestor de contraseñas | RS-17 | Ya |
-| 9 | Procedimientos de baja (teletrabajador, caja) en el plan de contingencia | RS-06, RS-22 | Fase 5 |
+| 8 | ~~Contraseña del Vault en el gestor de contraseñas~~ (hecho 2026-10-22) | RS-17 | Hecho |
+| 9 | ~~Procedimientos de baja en el plan de contingencia~~ (E10, E11). Falta automatizar la limpieza en OPNsense y en el portal | RS-06, RS-22 | Fase 5 |
 | 10 | Registro de tratamiento de datos (RGPD) | RS-23 | Fase 5 |
 
 Con las acciones 1, 3, 5 y 6 hechas, ningún riesgo queda en 🔴 alto.

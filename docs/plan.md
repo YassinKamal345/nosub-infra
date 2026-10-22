@@ -51,6 +51,7 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
 ## Fase 5 · Cierre
 - [x] 5.1 Plan de riesgos de seguridad (`docs/riesgos.md`): 23 riesgos valorados (probabilidad × impacto),
   14 medidas ya montadas y plan de acción con 10 pendientes ordenados
-- [ ] 5.2 Plan de contingencia (`docs/contingencia.md`)
+- [x] 5.2 Plan de contingencia (`docs/contingencia.md`): qué tenemos para recuperar, prioridades con RTO/RPO,
+  12 escenarios (E1-E12) con pasos y comprobación, pruebas de vuelta a la normalidad, simulacros y registro de incidentes
 - [ ] 5.3 Simulacro de restauración (restic + vzdump)
 - [ ] 5.4 Material para la defensa

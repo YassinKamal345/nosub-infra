@@ -6,7 +6,9 @@ Wants=network-online.target
 [Service]
 User=node_exporter
 ExecStart=/usr/local/bin/node_exporter --web.listen-address={{ node_exporter_ip }}:{{ node_exporter_puerto }} --collector.systemd
-Restart=on-failure
+# Tras un corte de luz puede arrancar antes de que el contenedor tenga su IP: reintentar hasta que la tenga
+Restart=always
+RestartSec=5
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes

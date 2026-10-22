@@ -1,4 +1,8 @@
-# Simulacro de restauración
+# Simulacros
+
+Actas de los simulacros de la fase 5: restauración de copias (apartado A) y corte de luz (apartado B).
+
+# A · Simulacro de restauración
 
 Acta del simulacro de la fase 5.3. Comprueba que **las copias de seguridad sirven de verdad**: no basta con
 que se hagan cada noche, hay que poder recuperar de ellas. Los pasos siguen el plan de contingencia
@@ -65,3 +69,64 @@ decidir qué copia usar y comprobar a mano.
   añadir como parte 4.
 - **Repetirlo**: una vez al año como mínimo, después de cada cambio en las copias y antes de pasar a la
   centralita.
+
+# B · Simulacro de corte de luz
+
+La centralita **no tiene SAI** (riesgo RS-15). Este simulacro comprueba que, si se va la luz, **nos enteramos**
+y que, cuando vuelve, **la sede se levanta sola, en orden y sin perder datos** (plan de contingencia, E1).
+
+## Cómo se hace
+
+```bash
+scripts/simulacro-corte-luz.sh      # en Proxmox, como root; unos 8-10 minutos
+```
+
+1. **Corte:** para de golpe (sin apagado ordenado, como un corte de verdad) todas las máquinas con la etiqueta
+   `sede`: OPNsense, los 6 contenedores y k3s. No toca las cajas, el VPS del cloud ni otros servicios de Proxmox.
+2. **Aviso:** espera a que la página de estado del cloud cuente 3 fallos seguidos, que es cuando avisa al móvil por
+   ntfy. La luz sigue cortada 1 minuto más.
+3. **Vuelve la luz:** arranca las máquinas como lo hace Proxmox al encenderse (`startall`), con el orden y las esperas
+   del inventario, y apunta cuándo arranca cada una.
+4. **Vuelta a la normalidad:** espera a que Prometheus (con datos de verdad, no recién arrancado) vea todo arriba y a
+   que la página de estado dé el aviso de "resuelto". Mira cómo se recuperó PostgreSQL.
+5. **Pruebas de la red:** `probar-red.sh` y `probar-vpn.sh`.
+
+Que el aviso llega al móvil lo confirma una persona: el script solo ve que Gatus lo ha disparado.
+
+**Límite del laboratorio:** en prx no se puede apagar Proxmox entero (tiene otros servicios), así que se cortan las
+máquinas de la sede y Proxmox sigue encendido. En la centralita habrá que comprobar también la BIOS (*encender al
+volver la corriente*) con un corte de verdad.
+
+## Resultado (2026-10-22, tercer intento)
+
+**11 de 11 comprobaciones bien.** Avisos al móvil confirmados: "Gatus: Sede/Conexión con la sede" y su "resuelto".
+
+| Momento | Qué pasa |
+|---|---|
+| 0 s | Corte: las 8 máquinas apagadas en 5 s |
+| 140 s | La página de estado lleva 3 fallos seguidos: **aviso al móvil** |
+| +1 min | Vuelve la luz |
+| 8 s | Arranca OPNsense; Proxmox espera 45 s |
+| 54 s | Arranca red-int (DNS, DHCP y proxy); espera 10 s |
+| 60 s | Arranca bbdd. PostgreSQL ve que no se apagó bien y **se recupera solo con su registro (WAL)** en milisegundos |
+| 82-90 s | Arrancan el resto: extranet, gitea, monitor, intranet y, por último, k3s |
+| 179 s | **Todo arriba** en Prometheus y aviso de **"resuelto"** al móvil |
+| después | Red (aislamiento entre VLANs) y VPN bien; las dos cajas, bien; ningún servicio en fallo en ninguna máquina |
+
+## Lo que hemos aprendido
+
+1. **El simulacro encontró un fallo real.** En los dos primeros cortes, el `node_exporter` (métricas) de `intranet` y
+   de `extranet` se quedó parado: arrancaba antes de que el contenedor tuviera su IP, lo reintentaba 5 veces en un
+   segundo y systemd se rendía. Sin el simulacro lo habríamos descubierto en el primer corte de luz de verdad.
+   **Arreglo:** reintentar cada 5 segundos sin rendirse (`Restart=always`, `RestartSec=5`), como ya hacían Gitea,
+   Traefik, Wiki.js y la extranet. En el tercer corte, 4 contenedores tuvieron que reintentarlo una vez y todos se
+   recuperaron solos.
+2. **El script también tenía fallos.** En el primer intento confundió un error con el aviso y solo dejó la sede
+   apagada 66 segundos, así que Gatus nunca llegó a avisar. En el segundo dio "todo arriba" cuando Prometheus
+   llevaba 6 segundos encendido y lanzó la prueba de red con OPNsense aún asentándose. Corregido: ahora espera a
+   los datos de verdad. **Lección:** una prueba que dice "bien" demasiado pronto es peor que no tener prueba.
+3. **Hay dos sistemas de aviso, y no se pisan.** Los avisos de "VM o contenedor apagado" que también llegaron
+   salen del vigilante propio de prx, por otro canal. El de la sede sale del cloud, que sigue en pie aunque la
+   sede se quede sin luz.
+4. **El orden de arranque funciona tal como está escrito en el inventario**, y los servicios que dependen de
+   PostgreSQL esperan y reintentan.

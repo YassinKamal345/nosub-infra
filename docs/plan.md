@@ -56,4 +56,8 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
 - [x] 5.3 Simulacro de restauración (`scripts/simulacro-restauracion.sh`, acta en `docs/simulacro.md`): ficheros de Gitea
   y bases de datos desde restic (cloud) y el contenedor red-int entero desde vzdump, todo aparte y sin tocar lo que
   está en marcha. 14/14 bien en 1 minuto (la primera pasada destapó 3 errores del procedimiento, ya corregidos)
+- [x] 5.3b Simulacro de corte de luz (`scripts/simulacro-corte-luz.sh`, acta en `docs/simulacro.md`): apagado brusco de
+  las 8 máquinas de la sede, aviso al móvil a los 2-3 min, arranque en orden y aviso de resuelto; todo arriba en 3 min.
+  11/11 a la tercera: los dos primeros intentos destaparon un fallo real (node_exporter se rendía si arrancaba antes
+  de tener IP), ya corregido
 - [ ] 5.4 Material para la defensa

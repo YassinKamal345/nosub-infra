@@ -71,8 +71,8 @@ repositorio y se aplica con Ansible. Así el arreglo no se pierde en la siguient
 
 ### E1 · Corte de luz en la sede
 
-- **Qué pasa:** la centralita no tiene SAI y se apaga de golpe. Si la luz no vuelve en 3 minutos, el VPS
-  del cloud avisa al móvil de que la sede no responde.
+- **Qué pasa:** la centralita no tiene SAI y se apaga de golpe. A los 2-3 minutos llega al móvil el aviso
+  "Sede / Conexión con la sede" desde el VPS del cloud (3 comprobaciones fallidas seguidas).
 - **Qué hacer:**
   1. Cuando vuelva la luz, la centralita se enciende sola (BIOS: *encender al volver la corriente*)
      y arranca las máquinas **en orden**: OPNsense, espera 45 s, DNS/DHCP, PostgreSQL y el resto.
@@ -81,7 +81,8 @@ repositorio y se aplica con Ansible. Así el arreglo no se pierde en la siguient
      a mano.
   3. Si un servicio no arranca, ver el escenario E3.
 - **Comprobar:** apartado 6. Si una base de datos no arranca después del corte, restaurarla (E4).
-- **Tiempo:** unos 5 minutos desde que vuelve la luz.
+- **Tiempo:** unos 3 minutos desde que vuelve la luz (simulacro del 2026-10-22: todo arriba en 3 min y
+  aviso de "resuelto" en el móvil; `scripts/simulacro-corte-luz.sh`, acta en `docs/simulacro.md`).
 
 ### E2 · Cae OPNsense (la sede se queda sin red)
 
@@ -269,7 +270,8 @@ Después de cualquier recuperación:
 - **Simulacros:** una vez al año como mínimo, y siempre antes de la puesta en producción:
   - Restaurar una base de datos y unos ficheros desde restic y desde vzdump: `scripts/simulacro-restauracion.sh`
     (hecho el 2026-10-22: 14/14 bien, 1 minuto; acta en `docs/simulacro.md`).
-  - Corte de luz simulado (apagar la sede de golpe y ver que vuelve sola y en orden).
+  - Corte de luz simulado: `scripts/simulacro-corte-luz.sh` (hecho el 2026-10-22: 11/11 bien a la tercera;
+    los dos primeros destaparon un fallo real, ya corregido; acta en `docs/simulacro.md`).
   - Reconstrucción de la sede desde cero (hecha el 2026-10-21: 11 minutos, sin errores).
 - **Revisión:** cada 6 meses, junto con el plan de riesgos, y después de cada incidente.
 - **Que funcione sin nosotros:** este documento, el repositorio y la contraseña del Vault en el gestor de

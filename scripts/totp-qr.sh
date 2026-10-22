@@ -7,9 +7,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 USUARIO=${1:-yassin}
-SEMILLA=$(ansible localhost -o -m debug \
-  -a "msg={{ (opnsense_root_clave | totp_semillas(['$USUARIO'], 'opnsense-web'))['$USUARIO'] }}" \
-  -e @inventories/sede/group_vars/all/main.yml -e @inventories/sede/group_vars/all/vault.yml 2>/dev/null \
+SEMILLA=$(ansible localhost -o -m debug -a "msg={{ opnsense_totp_semillas['$USUARIO'] }}" \
+  -e @inventories/sede/group_vars/all/main.yml -e @inventories/sede/group_vars/all/vault.yml \
+  -e @roles/opnsense/defaults/main.yml 2>/dev/null \
   | grep -o '"msg": "[A-Z2-7]*"' | cut -d'"' -f4)
 [ -n "$SEMILLA" ] || { echo "No he podido calcular la semilla"; exit 1; }
 URI="otpauth://totp/NoSub%20OPNsense:$USUARIO?secret=$SEMILLA&issuer=NoSub%20OPNsense&digits=6&period=30"

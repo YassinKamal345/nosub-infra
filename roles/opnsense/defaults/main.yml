@@ -37,7 +37,9 @@ opnsense_administradores:
 # sigue entrando solo con contraseña: es la puerta de emergencia. QR para la app: scripts/totp-qr.sh <usuario>
 opnsense_totp: true
 opnsense_totp_servidor: "NoSub TOTP"
-opnsense_totp_semillas: "{{ opnsense_root_clave | totp_semillas(['root'] + opnsense_administradores | map(attribute='nombre') | list, 'opnsense-web') }}"
+# Cambiar la versión cambia todas las semillas (p. ej. si una se ha filtrado); después, volver a escanear los QR
+opnsense_totp_version: 2
+opnsense_totp_semillas: "{{ opnsense_root_clave | totp_semillas(['root'] + opnsense_administradores | map(attribute='nombre') | list, 'opnsense-web-v' ~ opnsense_totp_version) }}"
 
 # Interfaz de OPNsense para cada VLAN (la de gestión es "lan")
 opnsense_claves_vlan: {10: lan, 20: opt1, 30: opt2, 40: opt3, 50: opt4, 60: opt5}

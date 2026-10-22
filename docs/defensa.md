@@ -1,5 +1,8 @@
 # Defensa del proyecto
 
+Presentación (15 diapositivas con notas del ponente; se descarga en PDF o PowerPoint):
+https://claude.ai/artifact/C77Kxh3fCDSYZckGf1y67g (privada: compartirla con el grupo desde su menú Compartir).
+
 Guion para presentar NoSub: qué contar, en qué orden, la demostración en directo y las preguntas que es fácil que
 hagan. Duración pensada: **20 minutos de presentación + 10 de preguntas**. Si el tiempo es otro, se recorta la parte 3.
 

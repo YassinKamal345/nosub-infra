@@ -65,6 +65,12 @@
   roles:
     - node_exporter
 
+- name: Actualizaciones automáticas de seguridad (Proxmox y OPNsense se actualizan a mano, ver docs/contingencia.md)
+  hosts: all:!proxmox:!cajas:!gns3
+  gather_facts: true
+  roles:
+    - actualizaciones
+
 - name: Copias externas al cloud (restic, por el enlace)
   hosts: copias_externas
   gather_facts: true

@@ -53,6 +53,10 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
   14 medidas ya montadas y plan de acción con 10 pendientes ordenados
 - [x] 5.2 Plan de contingencia (`docs/contingencia.md`): qué tenemos para recuperar, prioridades con RTO/RPO,
   12 escenarios (E1-E12) con pasos y comprobación, pruebas de vuelta a la normalidad, simulacros y registro de incidentes
+- [x] 5.1c Riesgos en rojo (2026-10-22): parches de seguridad automáticos en Debian, Ubuntu y Rocky, vigilados por
+  Prometheus (rol `actualizaciones`, avisos `ActualizacionesParadas` y `ReinicioPendiente`); contraseña de laboratorio
+  de OPNsense cambiada por una aleatoria y Ansible no deja poner contraseñas de administrador cortas. Queda en rojo
+  RS-14 (vzdump en el mismo disco): necesita un disco USB o NAS en la centralita
 - [x] 5.3 Simulacro de restauración (`scripts/simulacro-restauracion.sh`, acta en `docs/simulacro.md`): ficheros de Gitea
   y bases de datos desde restic (cloud) y el contenedor red-int entero desde vzdump, todo aparte y sin tocar lo que
   está en marcha. 14/14 bien en 1 minuto (la primera pasada destapó 3 errores del procedimiento, ya corregidos)

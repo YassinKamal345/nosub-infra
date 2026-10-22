@@ -1,0 +1,84 @@
+# ---------- 1. Debian y Ubuntu: unattended-upgrades ----------
+- name: Instalar unattended-upgrades (Debian y Ubuntu)
+  when: ansible_os_family == "Debian"
+  ansible.builtin.apt: { name: unattended-upgrades, update_cache: true, cache_valid_time: 3600 }
+
+- name: Actualizar cada día (lista de paquetes y parches)
+  when: ansible_os_family == "Debian"
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: "0644"
+    content: |
+      // Gestionado por Ansible (nosub-infra, rol actualizaciones)
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::AutocleanInterval "7";
+
+- name: Qué se actualiza solo (seguridad y correcciones de la versión estable) y sin reinicio automático
+  when: ansible_os_family == "Debian"
+  ansible.builtin.template: { src: 52nosub-actualizaciones.j2, dest: /etc/apt/apt.conf.d/52nosub-actualizaciones, mode: "0644" }
+
+# ---------- 2. Rocky Linux: dnf-automatic ----------
+- name: Instalar dnf-automatic y needs-restarting (Rocky)
+  when: ansible_os_family == "RedHat"
+  ansible.builtin.dnf: { name: [dnf-automatic, dnf-plugins-core] }
+
+- name: Solo parches de seguridad, aplicados sin preguntar y sin reinicio automático
+  when: ansible_os_family == "RedHat"
+  community.general.ini_file:
+    path: /etc/dnf/automatic.conf
+    section: "{{ item.s }}"
+    option: "{{ item.o }}"
+    value: "{{ item.v }}"
+    mode: "0644"
+  loop:
+    - { s: commands, o: upgrade_type, v: security }
+    - { s: commands, o: download_updates, v: "yes" }
+    - { s: commands, o: apply_updates, v: "yes" }
+    - { s: commands, o: reboot, v: never }
+    - { s: emitters, o: emit_via, v: stdio }
+    - { s: base, o: exclude, v: "{{ actualizaciones_excluidos | join(' ') }}" }
+  loop_control: { label: "{{ item.o }} = {{ item.v }}" }
+
+- name: Temporizador diario de dnf-automatic
+  when: ansible_os_family == "RedHat"
+  ansible.builtin.systemd: { name: dnf-automatic.timer, state: started, enabled: true }
+
+# ---------- 3. Estado para Prometheus (avisos ActualizacionesParadas y ReinicioPendiente) ----------
+- name: Carpeta de métricas de node_exporter
+  ansible.builtin.file: { path: "{{ actualizaciones_metricas_dir }}", state: directory, mode: "0755" }
+
+- name: Script que mira si las actualizaciones van bien y si falta reiniciar
+  ansible.builtin.template: { src: nosub-estado-actualizaciones.j2, dest: /usr/local/sbin/nosub-estado-actualizaciones, mode: "0755" }
+
+- name: Servicio y temporizador del script (cada 15 minutos)
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.f }}"
+    mode: "0644"
+    content: "{{ item.c }}"
+  loop:
+    - f: nosub-estado-actualizaciones.service
+      c: |
+        [Unit]
+        Description=Estado de las actualizaciones automáticas para Prometheus (nosub-infra)
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/nosub-estado-actualizaciones
+    - f: nosub-estado-actualizaciones.timer
+      c: |
+        [Unit]
+        Description=Estado de las actualizaciones automáticas, cada 15 minutos (nosub-infra)
+        [Timer]
+        OnBootSec=2min
+        OnUnitActiveSec=15min
+        [Install]
+        WantedBy=timers.target
+  loop_control: { label: "{{ item.f }}" }
+  register: r_unidades
+
+- name: Activar el temporizador
+  ansible.builtin.systemd: { name: nosub-estado-actualizaciones.timer, state: started, enabled: true, daemon_reload: "{{ r_unidades.changed }}" }
+
+- name: Primer estado ya
+  ansible.builtin.command: /usr/local/sbin/nosub-estado-actualizaciones
+  args: { creates: "{{ actualizaciones_metricas_dir }}/actualizaciones.prom" }

@@ -28,6 +28,7 @@
   roles:
     - caja
     - node_exporter
+    - actualizaciones
 
 - name: Dar de alta su túnel en la sede (OPNsense lee su clave pública) y, en el laboratorio, su casa
   hosts: proxmox

@@ -1,3 +1,11 @@
+# ---------- 0. Contraseñas fuertes (riesgo RS-05) ----------
+- name: Las contraseñas de los administradores tienen al menos 16 caracteres
+  ansible.builtin.assert:
+    that: (vault_opnsense_admins | dict2items | map(attribute='value') | map('length') | min) >= 16
+    fail_msg: "Hay una contraseña de administrador de OPNsense con menos de 16 caracteres (vault_opnsense_admins)"
+    quiet: true
+  no_log: true
+
 # ---------- 1. Imagen oficial (preinstalada, "nano") ----------
 - name: Carpeta de imágenes
   ansible.builtin.file: { path: "{{ opnsense_dir_imagen }}", state: directory, mode: "0755" }

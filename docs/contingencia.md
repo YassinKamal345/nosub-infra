@@ -274,6 +274,8 @@ Después de cualquier recuperación:
     los dos primeros destaparon un fallo real, ya corregido; acta en `docs/simulacro.md`).
   - Reconstrucción de la sede desde cero (hecha el 2026-10-21: 11 minutos, sin errores).
 - **Revisión:** cada 6 meses, junto con el plan de riesgos, y después de cada incidente.
+- **Actualizaciones:** los parches de seguridad se instalan solos cada día (rol `actualizaciones`). Una vez al mes,
+  a mano: Proxmox, OPNsense y las apps con versión fijada; y reiniciar las máquinas con `ReinicioPendiente`.
 - **Que funcione sin nosotros:** este documento, el repositorio y la contraseña del Vault en el gestor de
   contraseñas tienen que bastar para que otro administrador recupere la sede.
 

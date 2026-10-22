@@ -24,6 +24,9 @@
 - name: Marcar la versión instalada
   ansible.builtin.copy: { content: "", dest: "/usr/local/share/node_exporter-{{ node_exporter_version }}", mode: "0644", force: false }
 
+- name: Carpeta de métricas en ficheros (textfile)
+  ansible.builtin.file: { path: "{{ node_exporter_textfile_dir }}", state: directory, mode: "0755" }
+
 - name: Servicio
   ansible.builtin.template: { src: node_exporter.service.j2, dest: /etc/systemd/system/node_exporter.service, mode: "0644" }
   notify: Reiniciar node_exporter

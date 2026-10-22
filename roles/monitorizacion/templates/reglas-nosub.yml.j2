@@ -27,6 +27,16 @@ groups:
         for: 10m
         labels: { gravedad: aviso }
         annotations: { resumen: "Disco de {{ '{{' }} $labels.nombre {{ '}}' }} al {{ '{{' }} $value | humanize {{ '}}' }} %" }
+      - alert: ActualizacionesParadas
+        expr: (time() - nosub_actualizacion_ultima_ok) / 86400 > 3 or nosub_actualizacion_fallo == 1
+        for: 1h
+        labels: { gravedad: aviso }
+        annotations: { resumen: "Las actualizaciones automáticas de {{ '{{' }} $labels.nombre {{ '}}' }} no terminan bien" }
+      - alert: ReinicioPendiente
+        expr: nosub_reinicio_pendiente == 1
+        for: 7d
+        labels: { gravedad: aviso }
+        annotations: { resumen: "{{ '{{' }} $labels.nombre {{ '}}' }} lleva una semana esperando un reinicio por un parche" }
       - alert: MemoriaCasiLlena
         expr: 100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 90
         for: 10m

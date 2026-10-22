@@ -73,6 +73,8 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 | M12 | **Seguridad de la red física**: solo SSH en los equipos, *BPDU guard* y *portfast* en los puestos, troncales sin negociación y VLAN nativa "aparcada" (999) | rol `red_fisica`, `docs/red.md` |
 | M13 | **k3s aislado por proyecto**: un namespace, una cuota y una NetworkPolicy por proyecto; contenedores sin root; secretos cifrados en disco | rol `k3s` |
 | M14 | **Bloqueo de fuerza bruta en el firewall**: OPNsense bloquea la IP tras varios intentos de acceso fallidos a su web o SSH | OPNsense (de serie) |
+| M15 | **Parches de seguridad automáticos** cada día en Debian, Ubuntu y Rocky (servidores, VPS y cajas), sin reinicio automático. Prometheus avisa si una máquina lleva 3 días sin actualizarse bien (`ActualizacionesParadas`) o una semana esperando un reinicio (`ReinicioPendiente`). Proxmox, OPNsense y las apps con versión fijada se revisan a mano una vez al mes | rol `actualizaciones` |
+| M16 | **Sin contraseñas débiles de administrador**: el rol de OPNsense no aplica la configuración si una contraseña de administrador tiene menos de 16 caracteres. El resto de contraseñas las genera Ansible (aleatorias, en el Vault) | rol `opnsense`, `vault.yml` |
 
 ## 4. Riesgos
 
@@ -81,7 +83,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 | # | Riesgo | P | I | Nivel | Tratamiento y medidas | Pendiente |
 |---|---|---|---|---|---|---|
 | RS-01 | Fuerza bruta contra el inicio de sesión del portal de clientes | 2 | 2 | 🟡 4 | Reducir: M11 (contraseñas fuertes con hash lento) | **Limitar los intentos** (en Traefik o en el portal) antes de abrir el portal a Internet |
-| RS-02 | Un fallo en el portal o en una app de k3s permite entrar en ese servidor | 2 | 2 | 🟡 4 | Reducir: M2 (el atacante queda dentro de la DMZ), M13 | Actualizaciones automáticas de seguridad (RS-09) |
+| RS-02 | Un fallo en el portal o en una app de k3s permite entrar en ese servidor | 2 | 2 | 🟡 4 | Reducir: M2 (el atacante queda dentro de la DMZ), M13 | — (M15 desde el 2026-10-22) |
 | RS-03 | Desde un servidor de la DMZ ya comprometido, saltar a la red interna | 1 | 3 | 🟡 3 | Reducir: M1, M2. La extranet solo llega a su propia base de datos y PostgreSQL solo acepta cada usuario desde su IP (`pg_hba`) | — |
 | RS-04 | Denegación de servicio (DoS) contra la conexión de la sede | 1 | 2 | 🟢 2 | Aceptar: no podemos parar un ataque grande con una sola línea. La entrada de la VPN puede pasar por el VPS del cloud | — |
 
@@ -89,7 +91,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 
 | # | Riesgo | P | I | Nivel | Tratamiento y medidas | Pendiente |
 |---|---|---|---|---|---|---|
-| RS-05 | Contraseñas débiles o de laboratorio que llegan a producción | 3 | 3 | 🔴 9 | Reducir: casi todas las contraseñas son aleatorias y van en el Vault (M5) | **Cambiar las de laboratorio** (p. ej. el usuario web de OPNsense) antes de montar la centralita |
+| RS-05 | Contraseñas débiles o de laboratorio que llegan a producción | 1 | 3 | 🟡 3 | Reducir: todas las contraseñas son aleatorias y van en el Vault (M5). La única de laboratorio (usuario web de OPNsense, 4 caracteres) se cambió el 2026-10-22 por una aleatoria de 20, y Ansible ya no deja volver a poner una corta (M16) | — |
 | RS-06 | Robo o pérdida del portátil de un teletrabajador (con su clave de VPN) | 2 | 2 | 🟡 4 | Reducir: M3 (cada clave es personal y no llega a la administración). Se revoca quitando su clave de la lista y aplicando `sede.yml` (contingencia, E10; OPNsense borra su peer) | — |
 | RS-07 | Robo de las credenciales de un administrador (su equipo o su clave SSH) | 1 | 3 | 🟡 3 | Reducir: M10, M14 | **Segundo factor (TOTP)** en Proxmox y OPNsense. Desactivar del todo el acceso SSH con contraseña (hoy solo está bloqueado para root) |
 | RS-08 | Fuga de secretos por el repositorio (Gitea o espejo de GitHub) | 1 | 3 | 🟡 3 | Reducir: M5. El repositorio es privado y el token de GitHub solo puede escribir en ese repositorio | — |
@@ -98,7 +100,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 
 | # | Riesgo | P | I | Nivel | Tratamiento y medidas | Pendiente |
 |---|---|---|---|---|---|---|
-| RS-09 | Vulnerabilidades sin parchear en los sistemas o en las apps | 2 | 3 | 🔴 6 | Reducir: las versiones están fijadas en el repositorio y se actualizan con Ansible (M4) | **Actualizaciones automáticas de seguridad** en Debian, Ubuntu y Rocky; revisar una vez al mes las versiones de Gitea, Grafana, Nextcloud, Wiki.js, Traefik y k3s |
+| RS-09 | Vulnerabilidades sin parchear en los sistemas o en las apps | 1 | 3 | 🟡 3 | Reducir: parches de seguridad automáticos y vigilados (M15; primera pasada el 2026-10-22 en las 10 máquinas, sin fallos). Las apps con versión fijada se actualizan con Ansible (M4) | Revisar una vez al mes Proxmox, OPNsense y las versiones de Gitea, Grafana, Nextcloud, Wiki.js, Traefik y k3s |
 | RS-10 | Un error humano de configuración rompe un servicio o abre un agujero | 2 | 2 | 🟡 4 | Reducir: M4 (todo pasa por Git, se simula con `--check` y se puede volver atrás), scripts de prueba (`scripts/probar-*.sh`) | — |
 | RS-11 | Un certificado caduca y los servicios HTTPS dejan de funcionar | 1 | 2 | 🟢 2 | Reducir: M9 y alerta `CertificadoCaducaPronto` (M8) | — |
 | RS-12 | Una app de DAM/DAW maliciosa o con errores afecta a las demás o se come los recursos | 2 | 1 | 🟢 2 | Reducir: M13 (cuota, aislamiento de red y sin root), M2 | — |
@@ -130,9 +132,9 @@ Lo pendiente, en orden. Las tareas técnicas se hacen como el resto: un rol o un
 
 | Prioridad | Acción | Riesgos | Cuándo |
 |---|---|---|---|
-| 1 | Cambiar las contraseñas de laboratorio por otras aleatorias del Vault | RS-05 | Antes de montar la centralita |
+| 1 | ~~Cambiar las contraseñas de laboratorio por otras aleatorias del Vault~~ (hecho 2026-10-22, M16) | RS-05 | Hecho |
 | 2 | Avisos de las alertas de Prometheus por ntfy (Alertmanager); los del cloud ya funcionan | RS-18 | Fase 5 |
-| 3 | Actualizaciones automáticas de seguridad en todos los servidores | RS-09, RS-02 | Fase 5 |
+| 3 | ~~Actualizaciones automáticas de seguridad en todos los servidores~~ (hecho 2026-10-22, M15) | RS-09, RS-02 | Hecho |
 | 4 | Límite de intentos en el inicio de sesión del portal | RS-01 | Antes de publicar el portal en Internet |
 | 5 | Segundo factor (TOTP) en Proxmox y OPNsense y SSH sin contraseña en todos los servidores | RS-07 | Fase 5 |
 | 6 | Copia vzdump en un disco USB o NAS, además del disco del servidor | RS-14 | Al montar la centralita |
@@ -141,7 +143,7 @@ Lo pendiente, en orden. Las tareas técnicas se hacen como el resto: un rol o un
 | 9 | ~~Procedimientos de baja en el plan de contingencia, automatizados y probados~~ (E10, E11; hecho 2026-10-22) | RS-06, RS-22 | Hecho |
 | 10 | Registro de tratamiento de datos (RGPD) | RS-23 | Fase 5 |
 
-Con las acciones 1, 3, 5 y 6 hechas, ningún riesgo queda en 🔴 alto.
+Con las acciones 1 y 3 hechas (2026-10-22), solo queda un riesgo en 🔴 alto: RS-14 (servidor único con la copia vzdump en el mismo disco), que se resuelve con la acción 6 al montar la centralita, porque necesita un disco aparte.
 
 ## 6. Revisión
 

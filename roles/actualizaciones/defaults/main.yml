@@ -1,0 +1,5 @@
+# Actualizaciones automáticas de seguridad (riesgo RS-09). Ver README.md.
+# Carpeta que lee node_exporter (textfile): aquí se deja el estado de las actualizaciones para Prometheus
+actualizaciones_metricas_dir: "{{ node_exporter_textfile_dir | default('/var/lib/node_exporter') }}"
+# Paquetes que nunca se actualizan solos (se suben a mano, en la ventana mensual, con su rol)
+actualizaciones_excluidos: []

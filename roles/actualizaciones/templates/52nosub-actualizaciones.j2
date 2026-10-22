@@ -1,0 +1,10 @@
+// Gestionado por Ansible (nosub-infra, rol actualizaciones).
+// Los orígenes son los de serie (50unattended-upgrades): parches de seguridad y correcciones de la versión estable.
+// Nunca se reinicia solo: si un parche lo necesita, Prometheus avisa (ReinicioPendiente) y se reinicia a mano.
+Unattended-Upgrade::Automatic-Reboot "false";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+Unattended-Upgrade::Package-Blacklist {
+{% for p in actualizaciones_excluidos %}
+    "{{ p }}";
+{% endfor %}
+};

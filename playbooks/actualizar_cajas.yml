@@ -9,6 +9,7 @@
   roles:
     - caja
     - node_exporter
+    - actualizaciones
 
 - name: Paquetes del sistema al día
   hosts: cajas

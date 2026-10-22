@@ -2,5 +2,7 @@
 node_exporter_version: "1.12.1"
 node_exporter_sha256: b51d8a76aa2a9156a55d501aca6276fae09e262259a5e4e831d2c2222f084e63
 node_exporter_puerto: 9100
+# Métricas que dejan otros roles en ficheros .prom (p. ej. el rol actualizaciones)
+node_exporter_textfile_dir: /var/lib/node_exporter
 # Dónde escucha: en los contenedores, su IP; en Proxmox, solo la de gestión (nunca la red de la oficina)
 node_exporter_ip: "{{ ansible_host }}"

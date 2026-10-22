@@ -1,0 +1,38 @@
+#!/bin/sh
+# Gestionado por Ansible (nosub-infra, rol actualizaciones). Deja para Prometheus (node_exporter, textfile):
+#   nosub_actualizacion_ultima_ok   hora (unix) de la última pasada de actualizaciones que terminó bien
+#   nosub_actualizacion_fallo       1 si la última pasada falló
+#   nosub_reinicio_pendiente        1 si un parche necesita reiniciar la máquina
+set -u
+DIR={{ actualizaciones_metricas_dir }}
+ESTADO=$DIR/actualizaciones.ultima-ok
+UNIDAD={{ 'apt-daily-upgrade.service' if ansible_os_family == 'Debian' else 'dnf-automatic.service' }}
+
+# La hora de la última pasada buena se guarda en disco: así no se pierde al reiniciar.
+# Al instalar, cuenta como buena la hora de instalación (aún no ha habido ninguna pasada).
+[ -s "$ESTADO" ] || date +%s > "$ESTADO"
+resultado=$(systemctl show "$UNIDAD" -p Result --value)
+fin=$(systemctl show "$UNIDAD" -p ExecMainExitTimestamp --value --timestamp=unix | tr -d @)
+if [ -n "$fin" ] && [ "$resultado" = success ] && [ "$fin" -gt "$(cat "$ESTADO")" ]; then
+  echo "$fin" > "$ESTADO"
+fi
+fallo=0; [ "$resultado" = success ] || fallo=1
+
+{% if ansible_os_family == 'Debian' %}
+reinicio=0; [ -f /run/reboot-required ] && reinicio=1
+{% else %}
+reinicio=0; dnf -q needs-restarting -r >/dev/null 2>&1 || reinicio=1
+{% endif %}
+
+cat > "$DIR/actualizaciones.prom.$$" <<EOF
+# HELP nosub_actualizacion_ultima_ok Hora (unix) de la última pasada de actualizaciones automáticas que terminó bien
+# TYPE nosub_actualizacion_ultima_ok gauge
+nosub_actualizacion_ultima_ok $(cat "$ESTADO")
+# HELP nosub_actualizacion_fallo 1 si la última pasada de actualizaciones automáticas falló
+# TYPE nosub_actualizacion_fallo gauge
+nosub_actualizacion_fallo $fallo
+# HELP nosub_reinicio_pendiente 1 si un parche instalado necesita reiniciar la máquina
+# TYPE nosub_reinicio_pendiente gauge
+nosub_reinicio_pendiente $reinicio
+EOF
+mv "$DIR/actualizaciones.prom.$$" "$DIR/actualizaciones.prom"

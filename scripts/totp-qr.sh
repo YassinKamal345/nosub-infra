@@ -18,4 +18,5 @@ qrencode -t ANSIUTF8 "$URI"
 echo "Si no puedes escanearlo, mete esta clave a mano (tipo: basada en tiempo): $SEMILLA"
 echo
 echo "Para entrar en la web: usuario $USUARIO y, en contraseña, tu contraseña seguida del código de 6 cifras"
-echo "(por ejemplo: MiContraseña123456)."
+echo "(por ejemplo: MiContraseña123456). Ojo: la app enseña el código con un espacio (123 456); se escribe sin él."
+echo "Web: http://opnsense.yk.internal (desde el Mac) o https://10.10.10.1 (desde la red de gestión)."

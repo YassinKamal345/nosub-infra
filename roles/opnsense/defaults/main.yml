@@ -31,6 +31,14 @@ opnsense_nombres_web: []
 opnsense_administradores:
   - { nombre: yassin, descripcion: "Yassin Kamal" }
 
+# Segundo factor en la web (riesgo RS-07): se entra con la contraseña seguida del código de 6 cifras de la app del
+# móvil. Las semillas se derivan de la contraseña de root del Vault (filtro totp_semilla): no hay secretos nuevos y
+# sobreviven a una reconstrucción. root también lo lleva y Ansible calcula su código. La consola de Proxmox (serie)
+# sigue entrando solo con contraseña: es la puerta de emergencia. QR para la app: scripts/totp-qr.sh <usuario>
+opnsense_totp: true
+opnsense_totp_servidor: "NoSub TOTP"
+opnsense_totp_semillas: "{{ opnsense_root_clave | totp_semillas(['root'] + opnsense_administradores | map(attribute='nombre') | list, 'opnsense-web') }}"
+
 # Interfaz de OPNsense para cada VLAN (la de gestión es "lan")
 opnsense_claves_vlan: {10: lan, 20: opt1, 30: opt2, 40: opt3, 50: opt4, 60: opt5}
 

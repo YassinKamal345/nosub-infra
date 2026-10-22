@@ -71,6 +71,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 | M10 | **Acceso de administración solo con clave SSH** en todos los servidores, el VPS y las cajas: nadie entra con contraseña (rol `ssh_seguro`, comprobado: solo `publickey`) y solo desde gestión o la VPN de administración. Usuario de Ansible en Proxmox con permisos limitados (rol `NoSubAnsible`) | roles `proxmox_vms`, `opnsense` |
 | M11 | **Protección del portal**: contraseñas con *scrypt*, protección CSRF en todos los formularios, cookies `Secure`, cabeceras de seguridad en Traefik y la misma respuesta (y el mismo tiempo) tanto si el usuario no existe como si la contraseña es incorrecta | rol `extranet`, rol `traefik` |
 | M17 | **Límite de intentos en el portal**, en dos capas: Traefik deja como mucho 10 intentos por minuto desde una IP y el portal bloquea un usuario 15 minutos tras 5 fallos (exista o no). Probado: intentos 6-10 bloqueados por el portal y 11 en adelante por Traefik | rol `extranet`, rol `traefik` |
+| M19 | **Segundo factor (TOTP) en la web de OPNsense** para todos, root incluido: contraseña seguida del código de la app. Las semillas se derivan del Vault (no hay secretos nuevos y sobreviven a una reconstrucción); Ansible calcula el código de root. Entrada de emergencia: consola serie desde Proxmox | rol `opnsense`, `scripts/totp-qr.sh` |
 | M18 | **Minimización de datos** (RGPD): registros del sistema 30 días, intentos fallidos 1 día, registro DNS de la caja 24 horas; página de privacidad en el portal; registro de tratamientos en `docs/rgpd.md` | roles `registros`, `extranet`, `caja` |
 | M12 | **Seguridad de la red física**: solo SSH en los equipos, *BPDU guard* y *portfast* en los puestos, troncales sin negociación y VLAN nativa "aparcada" (999) | rol `red_fisica`, `docs/red.md` |
 | M13 | **k3s aislado por proyecto**: un namespace, una cuota y una NetworkPolicy por proyecto; contenedores sin root; secretos cifrados en disco | rol `k3s` |
@@ -95,7 +96,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 |---|---|---|---|---|---|---|
 | RS-05 | Contraseñas débiles o de laboratorio que llegan a producción | 1 | 3 | 🟡 3 | Reducir: todas las contraseñas son aleatorias y van en el Vault (M5). La única de laboratorio (usuario web de OPNsense, 4 caracteres) se cambió el 2026-10-22 por una aleatoria de 20, y Ansible ya no deja volver a poner una corta (M16) | — |
 | RS-06 | Robo o pérdida del portátil de un teletrabajador (con su clave de VPN) | 2 | 2 | 🟡 4 | Reducir: M3 (cada clave es personal y no llega a la administración). Se revoca quitando su clave de la lista y aplicando `sede.yml` (contingencia, E10; OPNsense borra su peer) | — |
-| RS-07 | Robo de las credenciales de un administrador (su equipo o su clave SSH) | 1 | 3 | 🟡 3 | Reducir: M10 (SSH solo con clave en todas las máquinas desde el 2026-10-22), M14 | **Segundo factor (TOTP)** en las webs de Proxmox y OPNsense (necesita el móvil del administrador) |
+| RS-07 | Robo de las credenciales de un administrador (su equipo o su clave SSH) | 1 | 2 | 🟢 2 | Reducir: M10 (SSH solo con clave en todas las máquinas), M14 y **segundo factor (TOTP) en la web de OPNsense** desde el 2026-10-22: con la contraseña sola no se entra (M19). Proxmox: se decide no ponerlo en prx (servidor de ukio); en la centralita, sí | TOTP en la web de Proxmox de la centralita |
 | RS-08 | Fuga de secretos por el repositorio (Gitea o espejo de GitHub) | 1 | 3 | 🟡 3 | Reducir: M5. El repositorio es privado y el token de GitHub solo puede escribir en ese repositorio | — |
 
 ### 4.3 Software y configuración
@@ -138,7 +139,7 @@ Lo pendiente, en orden. Las tareas técnicas se hacen como el resto: un rol o un
 | 2 | ~~Avisos de las alertas de Prometheus por ntfy (Alertmanager)~~ (hecho 2026-10-22) | RS-18 | Hecho |
 | 3 | ~~Actualizaciones automáticas de seguridad en todos los servidores~~ (hecho 2026-10-22, M15) | RS-09, RS-02 | Hecho |
 | 4 | ~~Límite de intentos en el inicio de sesión del portal~~ (hecho 2026-10-22, M17) | RS-01 | Hecho |
-| 5 | Segundo factor (TOTP) en Proxmox y OPNsense (~~SSH sin contraseña en todos los servidores~~: hecho 2026-10-22) | RS-07 | Con el administrador (necesita su móvil) |
+| 5 | ~~Segundo factor (TOTP) en OPNsense~~ y ~~SSH sin contraseña~~ (hechos 2026-10-22); TOTP en la web de Proxmox | RS-07 | Proxmox: al montar la centralita |
 | 6 | Copia vzdump en un disco USB o NAS, además del disco del servidor | RS-14 | Al montar la centralita |
 | 7 | BIOS de la centralita: encender al volver la corriente (~~prueba de corte simulado~~: hecha el 2026-10-22) | RS-15 | Al montar la centralita |
 | 8 | ~~Contraseña del Vault en el gestor de contraseñas~~ (hecho 2026-10-22) | RS-17 | Hecho |

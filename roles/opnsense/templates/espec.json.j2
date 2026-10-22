@@ -12,6 +12,7 @@
   "ssh_interfaz": "lan",
   "administradores": opnsense_administradores,
   "nombres_web": opnsense_nombres_web,
+  "totp": {"activo": opnsense_totp | bool, "servidor": opnsense_totp_servidor},
   "troncal": "vtnet0",
   "wan": {"if": "vtnet1", "ip": opnsense_wan_ip, "mascara": opnsense_wan_mascara | string,
           "gateway": "WAN_PRX", "puerta": opnsense_wan_puerta},

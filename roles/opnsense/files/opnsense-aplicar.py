@@ -11,10 +11,11 @@ OPNsense guarda toda su configuración en un único config.xml. Este script:
 
 Uso:  opnsense-aplicar.py URL ESPEC.json [--simular]
 Variables: OPN_CLAVE (para entrar ahora), OPN_CLAVE_ROOT (la que debe tener root), OPN_ADMINS (JSON
-usuario -> contraseña de los administradores personales) y
+usuario -> contraseña de los administradores personales), OPN_TOTP (JSON usuario -> semilla TOTP en base32),
+OPN_ENTRAR_CON_TOTP ("1" si la web ya pide el código: se añade el de root a la contraseña) y
 OPN_WG_PRIVADAS (JSON con las claves privadas de WireGuard: servidor y cada usuario; de las cajas solo va su clave pública en ESPEC). Imprime CAMBIADO o SIN CAMBIOS en la última línea.
 """
-import base64, json, os, re, sys, time, uuid
+import base64, hashlib, hmac, json, os, re, struct, sys, time, uuid
 import xml.etree.ElementTree as ET
 import bcrypt, requests, urllib3
 from cryptography.hazmat.primitives import serialization
@@ -28,9 +29,18 @@ def uid(*partes):
     return str(uuid.uuid5(NS, "/".join(partes)))
 
 
+def codigo_totp(semilla, momento=None):
+    """Código TOTP de 6 cifras (RFC 6238, SHA-1, 30 s), el mismo que la app del móvil."""
+    clave = base64.b32decode(semilla)
+    paso = struct.pack(">Q", int((momento or time.time()) // 30))
+    h = hmac.new(clave, paso, hashlib.sha1).digest()
+    n = struct.unpack(">I", h[h[-1] & 15:][:4])[0] & 0x7FFFFFFF
+    return "%06d" % (n % 1000000)
+
+
 # ---------- web ----------
 class Web:
-    def __init__(self, url, usuario, clave):
+    def __init__(self, url, usuario, clave, semilla=None):
         self.url, self.s = url, requests.Session()
         self.s.verify = False
         self.s.headers["Connection"] = "close"  # la web a veces manda cuerpo de más y rompe el keep-alive
@@ -38,7 +48,9 @@ class Web:
         for intento in range(6):
             try:
                 k, v = self.csrf(self.s.get(url + "/", timeout=15).text)
-                r = self.s.post(url + "/", data={"usernamefld": usuario, "passwordfld": clave, "login": "1", k: v}, timeout=15)
+                # con TOTP: contraseña seguida del código del momento (se calcula justo antes de mandarlo)
+                total = clave + (codigo_totp(semilla) if semilla else "")
+                r = self.s.post(url + "/", data={"usernamefld": usuario, "passwordfld": total, "login": "1", k: v}, timeout=15)
                 if "usernamefld" not in r.text:
                     return
             except (SystemExit, requests.exceptions.RequestException) as e:
@@ -150,6 +162,23 @@ def aplicar(raiz, esp):
         poner_clave(u, claves[a["nombre"]])
         if str(2000 + n) not in [m.text for m in admins.findall("member")]:
             ET.SubElement(admins, "member").text = str(2000 + n)
+    # segundo factor (TOTP) en la web: servidor "Local + TOTP" (contraseña y después el código) y semilla de cada usuario
+    webgui = hijo(s, "webgui")
+    for a in [x for x in s.findall("authserver") if x.findtext("name") == esp["totp"]["servidor"]]:
+        s.remove(a)
+    if esp["totp"]["activo"]:
+        semillas = json.loads(os.environ["OPN_TOTP"])
+        a = ET.Element("authserver")
+        s.insert(list(s).index(root), a)
+        rellenar(a, {"refid": uid("totp", esp["totp"]["servidor"]).replace("-", "")[:13], "type": "totp",
+                     "name": esp["totp"]["servidor"], "otpLength": "6", "timeWindow": "30", "graceperiod": "30",
+                     "passwordFirst": "1"})
+        hijo(webgui, "authmode", esp["totp"]["servidor"])
+        for u in s.findall("user"):
+            if u.findtext("name") in semillas:
+                hijo(u, "otp_seed", semillas[u.findtext("name")])
+    else:
+        quitar(webgui, "authmode")
     # otros nombres con los que se entra a la web (si no, OPNsense lo toma por un ataque "DNS rebind")
     hijo(hijo(s, "webgui"), "althostnames", " ".join(esp["nombres_web"]))
     ssh = hijo(s, "ssh")
@@ -342,7 +371,8 @@ def main():
     url, ruta = sys.argv[1:3]
     simular = "--simular" in sys.argv
     esp = json.load(open(ruta))
-    web = Web(url, "root", os.environ["OPN_CLAVE"])
+    semilla = json.loads(os.environ["OPN_TOTP"])["root"] if os.environ.get("OPN_ENTRAR_CON_TOTP") == "1" else None
+    web = Web(url, "root", os.environ["OPN_CLAVE"], semilla)
     actual = web.bajar()
     raiz = ET.fromstring(actual.encode())
     aplicar(raiz, esp)

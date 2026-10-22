@@ -102,6 +102,19 @@
   vars:
     opnsense_clave_ssh_texto: "{{ clave_ssh.content | b64decode | trim }}"
 
+# Se mira por SSH (solo lectura) en vez de probar a entrar: cada intento fallido en la web acerca el bloqueo de la IP.
+# Sin comprobar la huella: OPNsense cambia de clave al reconstruirse y solo se lee un dato de la red de gestión.
+- name: ¿La web ya pide el código TOTP?
+  when: not opn_primera_vez
+  ansible.builtin.command:
+    # la orden remota va en un solo argumento: si no, la shell de OPNsense toma < y > por redirecciones
+    argv: [ssh, -i, "{{ opnsense_clave_ssh | regex_replace('\\.pub$', '') }}", -o, BatchMode=yes, -o, ConnectTimeout=10,
+           -o, StrictHostKeyChecking=no, -o, UserKnownHostsFile=/dev/null, -o, LogLevel=ERROR, "root@{{ opnsense_ip_gestion }}",
+           "grep -c '<authmode>{{ opnsense_totp_servidor }}</authmode>' /conf/config.xml"]
+  register: r_web_totp
+  changed_when: false
+  failed_when: r_web_totp.rc > 1 or r_web_totp.stdout | length == 0
+
 - name: Aplicar la configuración en OPNsense
   ansible.builtin.command:
     argv: "{{ (['ip', 'netns', 'exec', 'opnboot'] if opn_primera_vez else []) + ['/usr/local/lib/nosub/opnsense-aplicar.py',
@@ -112,6 +125,8 @@
     OPN_CLAVE_ROOT: "{{ opnsense_root_clave }}"
     OPN_WG_PRIVADAS: "{{ vault_wg_privadas | combine(opnsense_wg_claves_enlaces) | to_json }}"
     OPN_ADMINS: "{{ vault_opnsense_admins | to_json }}"
+    OPN_TOTP: "{{ opnsense_totp_semillas | to_json }}"
+    OPN_ENTRAR_CON_TOTP: "{{ '1' if not opn_primera_vez and (r_web_totp.stdout | default('0') | int) > 0 else '0' }}"
   check_mode: false
   register: aplicar
   changed_when: "'CAMBIADO' in aplicar.stdout"

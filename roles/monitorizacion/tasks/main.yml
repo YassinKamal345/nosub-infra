@@ -20,6 +20,35 @@
   ansible.builtin.template: { src: reglas-nosub.yml.j2, dest: /etc/prometheus/reglas-nosub.yml, mode: "0644", validate: "promtool check rules %s" }
   notify: Reiniciar Prometheus
 
+# ---------- Avisos al móvil: Alertmanager -> ntfy ----------
+- name: Alertmanager
+  when: alertmanager_activo | bool
+  block:
+    - name: Paquete de Alertmanager
+      ansible.builtin.apt: { name: prometheus-alertmanager, install_recommends: false }
+    - name: Alertmanager escucha solo en local y sin clúster
+      ansible.builtin.copy:
+        dest: /etc/default/prometheus-alertmanager
+        content: |
+          # Generado por Ansible (nosub-infra, rol monitorizacion)
+          ARGS="--web.listen-address=127.0.0.1:9093 --cluster.listen-address="
+        mode: "0644"
+      notify: Reiniciar Alertmanager
+    - name: Dirección del canal de ntfy (es secreta; solo la leen root y Alertmanager)
+      ansible.builtin.copy:
+        dest: /etc/prometheus/alertmanager-ntfy.url
+        content: "{{ hostvars[groups['cloud'][0]].cloud_ntfy_url }}?{{ {'tpl': 'yes', 'p': '4', 't': alertmanager_ntfy_titulo, 'm': alertmanager_ntfy_mensaje} | urlencode }}\n"
+        owner: root
+        group: prometheus
+        mode: "0640"
+      no_log: true
+      notify: Reiniciar Alertmanager
+    - name: A quién avisa y cada cuánto
+      ansible.builtin.template: { src: alertmanager.yml.j2, dest: /etc/prometheus/alertmanager.yml, mode: "0644", validate: "amtool check-config %s" }
+      notify: Reiniciar Alertmanager
+    - name: Arrancar Alertmanager
+      ansible.builtin.systemd: { name: prometheus-alertmanager, state: started, enabled: true }
+
 - name: Qué recoge Prometheus
   ansible.builtin.template: { src: prometheus.yml.j2, dest: /etc/prometheus/prometheus.yml, mode: "0644", validate: "promtool check config --syntax-only %s" }
   notify: Reiniciar Prometheus

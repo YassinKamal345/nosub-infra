@@ -57,6 +57,40 @@
   changed_when: "'CAMBIO' in r_bajas.stdout"
 
 # ---------- 3. Servicio ----------
+# Cada hora se borran los inicios de sesión fallidos de hace más de un día (lo que promete la página de privacidad)
+- name: Limpieza de los inicios de sesión fallidos (servicio y temporizador)
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.f }}"
+    mode: "0644"
+    content: "{{ item.c }}"
+  loop:
+    - f: extranet-limpiar.service
+      c: |
+        # Gestionado por Ansible (nosub-infra/roles/extranet)
+        [Unit]
+        Description=Borra los inicios de sesión fallidos de hace más de un día (portal de clientes)
+        [Service]
+        Type=oneshot
+        User={{ extranet_usuario }}
+        EnvironmentFile=/etc/extranet/extranet.env
+        WorkingDirectory={{ extranet_dir }}
+        ExecStart=/usr/bin/python3 {{ extranet_dir }}/gestion.py limpiar
+    - f: extranet-limpiar.timer
+      c: |
+        # Gestionado por Ansible (nosub-infra/roles/extranet)
+        [Unit]
+        Description=Limpieza de inicios de sesión fallidos, cada hora
+        [Timer]
+        OnCalendar=hourly
+        Persistent=true
+        [Install]
+        WantedBy=timers.target
+  loop_control: { label: "{{ item.f }}" }
+  register: r_limpiar
+
+- name: Activar la limpieza
+  ansible.builtin.systemd: { name: extranet-limpiar.timer, state: started, enabled: true, daemon_reload: "{{ r_limpiar.changed }}" }
+
 - name: Servicio systemd
   ansible.builtin.template: { src: extranet.service.j2, dest: /etc/systemd/system/extranet.service, mode: "0644" }
   notify: Reiniciar el portal

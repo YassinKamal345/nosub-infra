@@ -173,6 +173,10 @@
   register: r_ntfy_leido
   no_log: true
 
+- name: El canal de avisos, para que Prometheus de la sede también avise por él (rol monitorizacion)
+  ansible.builtin.set_fact: { cloud_ntfy_url: "{{ cloud_ntfy_servidor }}/{{ r_ntfy_leido.content | b64decode | trim }}" }
+  no_log: true
+
 - name: Certificado de NoSub CA (para comprobar las webs de la sede)
   ansible.builtin.copy: { src: "{{ inventory_dir }}/ca/nosub-ca.crt", dest: "{{ cloud_dir }}/gatus/nosub-ca.crt", mode: "0644" }
   notify: Reiniciar la página de estado

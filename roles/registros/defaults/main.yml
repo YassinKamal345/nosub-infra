@@ -1,0 +1,4 @@
+# Registros del sistema (journald): llevan IPs de quien entra al portal, a la VPN o por SSH (datos personales).
+# Se guardan solo el tiempo necesario para investigar un incidente (RGPD: minimización, ver docs/rgpd.md)
+registros_dias: 30
+registros_tamano_max: 500M

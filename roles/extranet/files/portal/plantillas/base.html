@@ -21,6 +21,6 @@
     {% for aviso in get_flashed_messages() %}<p class="aviso">{{ aviso }}</p>{% endfor %}
     {% block contenido %}{% endblock %}
   </main>
-  <footer>{{ empresa }}: tu caja, tus datos, sin suscripciones.</footer>
+  <footer>{{ empresa }}: tu caja, tus datos, sin suscripciones. · <a href="{{ url_for('privacidad') }}">Privacidad</a></footer>
 </body>
 </html>

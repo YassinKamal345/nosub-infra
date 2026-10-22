@@ -130,3 +130,10 @@ volver la corriente*) con un corte de verdad.
    sede se quede sin luz.
 4. **El orden de arranque funciona tal como está escrito en el inventario**, y los servicios que dependen de
    PostgreSQL esperan y reintentan.
+5. **Un fallo silencioso que el simulacro no vio (encontrado después, el mismo día).** Kea (DHCP) arrancó antes de que
+   el contenedor tuviera red, no pudo abrir el puerto 67 y se quedó "activo" sin escuchar y sin avisar. Prometheus no
+   lo detecta porque no tiene sonda de DHCP, y el simulacro no probaba el DHCP. Salió al pasar `probar-dhcp.sh`
+   horas después. **Arreglo:** Kea reintenta abrir el puerto cada 5 s durante 5 minutos
+   (`service-sockets-max-retries`); comprobado reiniciando `red-int`: el fallo se repitió y Kea se recuperó solo.
+   El simulacro ahora también pasa `probar-dhcp.sh`. **Lección:** "el servicio está activo" no significa "el servicio
+   funciona"; hay que probar lo que hace.

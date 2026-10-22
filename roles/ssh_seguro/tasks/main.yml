@@ -1,0 +1,28 @@
+# SSH solo con clave (riesgo RS-07): nadie entra con contraseña, root solo con clave.
+# El fichero empieza por 10-: sshd se queda con el primer valor que lee y así manda sobre los de la
+# distribución (50-redhat.conf, 50-cloud-init.conf, 60-cloudimg-settings.conf).
+- name: SSH solo con clave
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-nosub.conf
+    mode: "0644"
+    content: |
+      # Gestionado por Ansible (nosub-infra, rol ssh_seguro)
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitRootLogin prohibit-password
+      PermitEmptyPasswords no
+      MaxAuthTries 3
+  notify: Recargar sshd
+
+- name: La configuración de sshd es válida (si no, se para aquí y sshd sigue con la anterior)
+  ansible.builtin.command: sshd -t
+  changed_when: false
+
+- name: Aplicarlo ya
+  ansible.builtin.meta: flush_handlers
+
+- name: Comprobar que sshd ya no acepta contraseñas
+  ansible.builtin.command: sshd -T
+  register: r_sshd
+  changed_when: false
+  failed_when: "'passwordauthentication no' not in r_sshd.stdout or 'permitrootlogin without-password' not in r_sshd.stdout"

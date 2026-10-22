@@ -4,7 +4,11 @@
   "Dhcp4": {
     "interfaces-config": {
       "interfaces": [ "{{ kea_interfaz }}" ],
-      "dhcp-socket-type": "udp"
+      "dhcp-socket-type": "udp",
+      // Tras un corte de luz Kea puede arrancar antes de que la red del contenedor esté lista: sin esto se queda
+      // en marcha sin escuchar (y sin avisar). Reintenta abrir el puerto 67 cada 5 s durante 5 minutos.
+      "service-sockets-max-retries": 60,
+      "service-sockets-retry-wait-time": 5000
     },
     "lease-database": {
       "type": "memfile",

@@ -9,6 +9,15 @@ http:
       service: {{ s.nombre }}
       middlewares: [seguridad]
       tls: {}
+{% if s.limitar is defined %}
+    # Inicio de sesión: como mucho {{ s.limitar.por_minuto }} intentos por minuto desde la misma IP (fuerza bruta)
+    {{ s.nombre }}-limitado:
+      rule: '({% for n in s.nombres %}Host(`{{ n }}`){{ " || " if not loop.last }}{% endfor %}) && Path(`{{ s.limitar.ruta }}`) && Method(`POST`)'
+      entryPoints: [websecure]
+      service: {{ s.nombre }}
+      middlewares: [seguridad, {{ s.nombre }}-limite]
+      tls: {}
+{% endif %}
 {% endfor %}
   services:
 {% for s in traefik_sitios %}
@@ -20,6 +29,13 @@ http:
 {% endif %}
 {% endfor %}
   middlewares:
+{% for s in traefik_sitios if s.limitar is defined %}
+    {{ s.nombre }}-limite:
+      rateLimit:
+        average: {{ s.limitar.por_minuto }}
+        period: 1m
+        burst: {{ s.limitar.por_minuto }}
+{% endfor %}
     seguridad:
       headers:
         stsSeconds: 31536000          # el navegador recuerda que esta web va siempre por HTTPS

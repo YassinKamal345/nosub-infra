@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Privacidad{% endblock %}
+{% block contenido %}
+<section class="tarjeta">
+  <h1>Privacidad</h1>
+  <p class="suave">Información sobre tus datos personales (artículo 13 del RGPD).</p>
+  <h2>Quién los trata</h2>
+  <p>{{ empresa }} (empresa ficticia del proyecto ASIX). Para cualquier cuestión sobre tus datos: privacidad@nosub.lan.</p>
+  <h2>Qué datos y para qué</h2>
+  <ul>
+    <li><b>Tu cuenta</b> (nombre, usuario, correo y contraseña cifrada): para que entres en el área de clientes. Base: el contrato del servicio.</li>
+    <li><b>Tus cajas</b> (nombre, red de tu casa, apps instaladas y su estado): para darte soporte y avisarte si algo falla. Base: el contrato.</li>
+    <li><b>Tus incidencias</b>: para resolverlas. Base: el contrato.</li>
+    <li><b>Inicios de sesión fallidos</b> (usuario e IP): para frenar ataques contra tu cuenta. Se borran a las 24 horas. Base: interés legítimo en proteger el servicio.</li>
+  </ul>
+  <h2>Lo que no hacemos</h2>
+  <ul>
+    <li>No vemos lo que haces en internet. El registro de webs bloqueadas de tu caja se queda en tu casa y se borra a las 24 horas.</li>
+    <li>No vendemos ni cedemos tus datos. No hay publicidad ni seguimiento en este portal.</li>
+  </ul>
+  <h2>Cuánto tiempo</h2>
+  <p>Mientras tengas el servicio. Al darte de baja se borran tu cuenta, tus cajas y tus incidencias; las copias de seguridad cifradas que aún los contengan desaparecen cuando caducan.</p>
+  <h2>Tus derechos</h2>
+  <p>Puedes pedir ver tus datos, corregirlos, borrarlos, llevártelos o limitar su uso escribiendo a privacidad@nosub.lan. Te respondemos en menos de un mes. Si no estás de acuerdo, puedes reclamar ante la Agencia Española de Protección de Datos (aepd.es).</p>
+</section>
+{% endblock %}

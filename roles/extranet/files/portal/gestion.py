@@ -3,6 +3,7 @@
   gestion.py tablas                 crea las tablas que falten
   gestion.py cliente '<json>'       crea o actualiza un cliente y sus cajas
                                     (contraseña en la variable PORTAL_CLAVE_CLIENTE)
+  gestion.py limpiar                borra los inicios de sesión fallidos de hace más de un día (RGPD)
   gestion.py bajas '<json>'         borra los clientes y cajas que ya no están en el inventario
                                     ({"clientes": [usuarios], "cajas": [nombres]}); con un cliente
                                     se borran también sus cajas e incidencias
@@ -66,6 +67,10 @@ def bajas(con, datos):
     return cajas + clientes > 0
 
 
+def limpiar(con):
+    return con.execute("DELETE FROM intentos_fallidos WHERE cuando < now() - interval '1 day'").rowcount > 0
+
+
 def main():
     orden = sys.argv[1] if len(sys.argv) > 1 else ""
     with conectar() as con:
@@ -73,6 +78,8 @@ def main():
             cambio = tablas(con)
         elif orden == "cliente" and len(sys.argv) == 3:
             cambio = cliente(con, json.loads(sys.argv[2]))
+        elif orden == "limpiar":
+            cambio = limpiar(con)
         elif orden == "bajas" and len(sys.argv) == 3:
             cambio = bajas(con, json.loads(sys.argv[2]))
         else:

@@ -57,6 +57,10 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
   Prometheus (rol `actualizaciones`, avisos `ActualizacionesParadas` y `ReinicioPendiente`); contraseña de laboratorio
   de OPNsense cambiada por una aleatoria y Ansible no deja poner contraseñas de administrador cortas. Queda en rojo
   RS-14 (vzdump en el mismo disco): necesita un disco USB o NAS en la centralita
+- [x] 5.1d Riesgos en amarillo (2026-10-22): avisos de Prometheus al móvil (Alertmanager → ntfy, probado parando
+  Squid); límite de intentos en el portal (Traefik por IP + bloqueo por usuario, probado); SSH solo con clave en todas
+  las máquinas (rol `ssh_seguro`); RGPD: `docs/rgpd.md`, página de privacidad, registros 30 días, DNS de la caja 24 h.
+  Encontrado y corregido: Kea se quedaba sin escuchar tras un corte de luz. Pendiente: TOTP (necesita el móvil)
 - [x] 5.3 Simulacro de restauración (`scripts/simulacro-restauracion.sh`, acta en `docs/simulacro.md`): ficheros de Gitea
   y bases de datos desde restic (cloud) y el contenedor red-int entero desde vzdump, todo aparte y sin tocar lo que
   está en marcha. 14/14 bien en 1 minuto (la primera pasada destapó 3 errores del procedimiento, ya corregidos)

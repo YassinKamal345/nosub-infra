@@ -31,6 +31,13 @@ CREATE TABLE IF NOT EXISTS incidencias (
     estado      text NOT NULL DEFAULT 'abierta' CHECK (estado IN ('abierta', 'en curso', 'cerrada')),
     creada      timestamptz NOT NULL DEFAULT now()
 );
+-- Inicios de sesión fallidos: con demasiados seguidos, el usuario queda bloqueado un rato (fuerza bruta)
+CREATE TABLE IF NOT EXISTS intentos_fallidos (
+    usuario     text NOT NULL,
+    ip          inet,
+    cuando      timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS intentos_fallidos_usuario ON intentos_fallidos (usuario, cuando);
 """
 
 

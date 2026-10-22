@@ -8,7 +8,8 @@ traefik_puerto_metricas: 8082        # métricas para Prometheus y /ping (solo l
 # Webs que publica Traefik: nombres → dirección interna. Cada nombre va en el certificado.
 # "prueba": nombre con el que se comprueba la web al acabar (si el primero es un comodín).
 traefik_sitios:
-  - { nombre: portal, nombres: ["portal.{{ dominio_interno }}"], destino: "http://127.0.0.1:{{ extranet_puerto | default(8080) }}", salud: /salud }
+  - { nombre: portal, nombres: ["portal.{{ dominio_interno }}"], destino: "http://127.0.0.1:{{ extranet_puerto | default(8080) }}", salud: /salud,
+      limitar: { ruta: /entrar, por_minuto: 10 } }   # inicio de sesión: máximo 10 intentos por minuto y por IP
   # Proyectos DAM/DAW: <proyecto>.apps.nosub.lan → Traefik de k3s, que elige el proyecto por el nombre (rol k3s)
   - { nombre: apps, nombres: ["*.apps.{{ dominio_interno }}"], destino: "http://{{ ip_k3s }}", prueba: "demo.apps.{{ dominio_interno }}" }
 

@@ -2,6 +2,14 @@
 prometheus_intervalo: 15s
 prometheus_retencion: 30d
 
+# Avisos al móvil: Alertmanager manda las alertas de Prometheus al canal de ntfy de la página de estado del cloud
+# (el mismo al que ya está suscrito el administrador). Solo si el VPS se ha configurado en esta misma ejecución.
+alertmanager_activo: "{{ groups['cloud'] | default([]) | length > 0 and hostvars[groups['cloud'][0]].cloud_ntfy_url is defined }}"
+alertmanager_repetir: 12h                 # si una alerta sigue activa, se recuerda cada 12 horas
+# ntfy convierte el JSON de Alertmanager en un mensaje legible con estas plantillas (Go, no Jinja: !unsafe)
+alertmanager_ntfy_titulo: !unsafe 'NoSub: {{if eq .status "resolved"}}resuelto {{end}}{{.commonLabels.alertname}}'
+alertmanager_ntfy_mensaje: !unsafe "{{range .alerts}}{{if eq .status \"resolved\"}}✅ {{else}}⚠️ {{end}}{{.annotations.resumen}}\n{{end}}"
+
 # Grafana (repositorio oficial apt.grafana.com; la clave se comprueba por su huella)
 grafana_version: "13.2.4"
 grafana_clave_huella: B53AE77BADB630A683046005963FA27710458545

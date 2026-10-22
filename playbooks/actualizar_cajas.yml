@@ -10,6 +10,8 @@
     - caja
     - node_exporter
     - actualizaciones
+    - ssh_seguro
+    - registros
 
 - name: Paquetes del sistema al día
   hosts: cajas

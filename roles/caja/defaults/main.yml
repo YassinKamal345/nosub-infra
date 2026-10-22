@@ -7,6 +7,9 @@ caja_adguard_sha256: c48f4a43000665484c5ec28177de11a004759b620dae8f77b2aabefc9ef
 caja_adguard_dir: /opt/AdGuardHome
 caja_adguard_puerto_web: 8080
 caja_adguard_usuario_web: admin
+# Registro de consultas DNS de la casa (qué webs se visitan): solo lo necesario para que el cliente vea qué se ha
+# bloqueado. AdGuard guarda 90 días de serie; aquí, 24 horas (RGPD: minimización, ver docs/rgpd.md)
+caja_adguard_registro_horas: 24
 # Contraseña del administrador de la caja (AdGuard). Se crea en la propia caja y no sale de ella.
 caja_clave_fichero: /root/caja-admin.clave
 

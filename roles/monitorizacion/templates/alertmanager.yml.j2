@@ -1,0 +1,14 @@
+# Generado por Ansible (nosub-infra, rol monitorizacion). Manda las alertas de Prometheus al móvil por ntfy.
+route:
+  receiver: ntfy
+  group_by: [alertname, nombre, servicio]   # un mensaje por alerta y equipo o servicio
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: {{ alertmanager_repetir }}
+
+receivers:
+  - name: ntfy
+    webhook_configs:
+      - url_file: /etc/prometheus/alertmanager-ntfy.url   # canal de ntfy (secreto) con las plantillas del mensaje
+        send_resolved: true                              # avisa también cuando se arregla
+        max_alerts: 10

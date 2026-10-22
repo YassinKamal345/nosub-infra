@@ -133,6 +133,25 @@
   delay: 3
   changed_when: false
 
+- name: El registro de consultas DNS solo guarda {{ caja_adguard_registro_horas }} horas (RGPD)
+  ansible.builtin.shell: |
+    python3 - <<'PY'
+    import base64, json, urllib.request
+    clave = open("{{ caja_clave_fichero }}").read().strip()
+    auth = {"Authorization": "Basic " + base64.b64encode(("{{ caja_adguard_usuario_web }}:" + clave).encode()).decode()}
+    url = "http://127.0.0.1:{{ caja_adguard_puerto_web }}/control/querylog/config"
+    actual = json.load(urllib.request.urlopen(urllib.request.Request(url, headers=auth), timeout=10))
+    quiero = {{ caja_adguard_registro_horas }} * 3600 * 1000      # AdGuard lo cuenta en milisegundos
+    if actual.get("interval") != quiero:
+        actual["interval"] = quiero
+        pet = urllib.request.Request(url + "/update", json.dumps(actual).encode(),
+                                     {**auth, "Content-Type": "application/json"}, method="PUT")
+        urllib.request.urlopen(pet, timeout=10)
+        print("CAMBIO")
+    PY
+  register: r_querylog
+  changed_when: "'CAMBIO' in r_querylog.stdout"
+
 # ---------- 5. Apps (Docker) ----------
 - name: Ajustes de Docker
   ansible.builtin.copy:

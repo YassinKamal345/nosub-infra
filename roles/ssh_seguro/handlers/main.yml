@@ -1,0 +1,7 @@
+# En Debian 13 sshd arranca por socket (ssh.socket tiene el puerto 22): una recarga (SIGHUP) hace que sshd intente
+# abrir el puerto él mismo y se cae. Reiniciar el servicio es seguro: las sesiones abiertas siguen y el socket
+# lanza un sshd nuevo con la configuración nueva en la siguiente conexión.
+- name: Recargar sshd
+  ansible.builtin.systemd:
+    name: "{{ 'sshd' if ansible_os_family == 'RedHat' else 'ssh' }}"
+    state: "{{ 'reloaded' if ansible_os_family == 'RedHat' else 'restarted' }}"

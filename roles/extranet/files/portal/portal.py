@@ -23,6 +23,10 @@ EMPRESA = os.environ.get("PORTAL_EMPRESA", "NoSub")
 
 # Hash de una contraseña que no existe: así "usuario no existe" tarda lo mismo que "contraseña mal"
 HASH_FALSO = "scrypt:32768:8:1$x$" + "0" * 128
+# Fuerza bruta: tras MAX_FALLOS intentos fallidos en BLOQUEO, el usuario queda bloqueado hasta que pase BLOQUEO.
+# Cuenta igual exista o no el usuario (así no se puede saber qué usuarios hay). Traefik limita además por IP.
+MAX_FALLOS = int(os.environ.get("PORTAL_MAX_FALLOS", "5"))
+BLOQUEO = os.environ.get("PORTAL_BLOQUEO", "15 minutes")
 
 
 @app.context_processor
@@ -71,17 +75,30 @@ def salud():
     return "ok\n"
 
 
+@app.get("/privacidad")
+def privacidad():
+    return render_template("privacidad.html")
+
+
 @app.route("/entrar", methods=["GET", "POST"])
 def entrar():
     if request.method == "POST":
-        usuario = request.form.get("usuario", "").strip()
+        usuario = request.form.get("usuario", "").strip()[:100]
         with conectar() as con:
+            fallos = con.execute("SELECT count(*) AS n FROM intentos_fallidos WHERE usuario = %s AND cuando > now() - %s::interval",
+                                 (usuario, BLOQUEO)).fetchone()["n"]
+            if fallos >= MAX_FALLOS:
+                flash("Demasiados intentos fallidos. Espera unos minutos y vuelve a probar.")
+                return render_template("entrar.html"), 429
             fila = con.execute("SELECT id, clave_hash FROM clientes WHERE usuario = %s", (usuario,)).fetchone()
-        if check_password_hash(fila["clave_hash"] if fila else HASH_FALSO, request.form.get("clave", "")) and fila:
-            session.clear()
-            session.permanent = True
-            session["cliente_id"] = fila["id"]
-            return redirect(url_for("panel"))
+            if check_password_hash(fila["clave_hash"] if fila else HASH_FALSO, request.form.get("clave", "")) and fila:
+                con.execute("DELETE FROM intentos_fallidos WHERE usuario = %s", (usuario,))
+                session.clear()
+                session.permanent = True
+                session["cliente_id"] = fila["id"]
+                return redirect(url_for("panel"))
+            con.execute("INSERT INTO intentos_fallidos (usuario, ip) VALUES (%s, %s)", (usuario, request.remote_addr))
+            con.execute("DELETE FROM intentos_fallidos WHERE cuando < now() - interval '1 day'")   # no se guardan más de un día
         flash("Usuario o contraseña incorrectos.")
     return render_template("entrar.html")
 

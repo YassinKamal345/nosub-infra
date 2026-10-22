@@ -66,10 +66,12 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 | M5 | **Secretos cifrados** con Ansible Vault; la contraseña del Vault no está en el repositorio. Las claves privadas de WireGuard de las cajas se crean en la propia caja y nunca salen de ella | `vault.yml`, rol `caja` |
 | M6 | **Copias externas** con restic al VPS: cifradas y en modo solo añadir (desde la sede no se pueden borrar, probado: 403). Copia diaria de PostgreSQL | roles `copias_externas`, `postgresql` |
 | M7 | **Reconstrucción probada**: la sede entera se rehace desde cero en 11 minutos (prueba del 2026-10-21) | `playbooks/sede.yml` |
-| M8 | **Monitorización**: Prometheus y Grafana con alertas (equipo caído, servicio caído, caja sin conexión, disco y memoria casi llenos, certificado a punto de caducar) y página de estado externa en el cloud (Gatus), que avisa al móvil por ntfy si la sede, el portal, el latido o las copias fallan | roles `monitorizacion`, `cloud` |
+| M8 | **Monitorización**: Prometheus y Grafana con alertas (equipo caído, servicio caído, caja sin conexión, disco y memoria casi llenos, certificado a punto de caducar) y página de estado externa en el cloud (Gatus). **Todo avisa al móvil por ntfy**: las alertas de Prometheus a través de Alertmanager (también cuando se arreglan) y, si la sede entera cae, la página de estado del cloud | roles `monitorizacion`, `cloud` |
 | M9 | **HTTPS con CA propia** ("NoSub CA", limitada a `nosub.lan` y `10.10.0.0/16`); los certificados se renuevan solos cuando les quedan menos de 30 días | rol `traefik` |
-| M10 | **Acceso de administración solo con clave SSH** (root no puede entrar con contraseña) y solo desde gestión o la VPN de administración. Usuario de Ansible en Proxmox con permisos limitados (rol `NoSubAnsible`) | roles `proxmox_vms`, `opnsense` |
+| M10 | **Acceso de administración solo con clave SSH** en todos los servidores, el VPS y las cajas: nadie entra con contraseña (rol `ssh_seguro`, comprobado: solo `publickey`) y solo desde gestión o la VPN de administración. Usuario de Ansible en Proxmox con permisos limitados (rol `NoSubAnsible`) | roles `proxmox_vms`, `opnsense` |
 | M11 | **Protección del portal**: contraseñas con *scrypt*, protección CSRF en todos los formularios, cookies `Secure`, cabeceras de seguridad en Traefik y la misma respuesta (y el mismo tiempo) tanto si el usuario no existe como si la contraseña es incorrecta | rol `extranet`, rol `traefik` |
+| M17 | **Límite de intentos en el portal**, en dos capas: Traefik deja como mucho 10 intentos por minuto desde una IP y el portal bloquea un usuario 15 minutos tras 5 fallos (exista o no). Probado: intentos 6-10 bloqueados por el portal y 11 en adelante por Traefik | rol `extranet`, rol `traefik` |
+| M18 | **Minimización de datos** (RGPD): registros del sistema 30 días, intentos fallidos 1 día, registro DNS de la caja 24 horas; página de privacidad en el portal; registro de tratamientos en `docs/rgpd.md` | roles `registros`, `extranet`, `caja` |
 | M12 | **Seguridad de la red física**: solo SSH en los equipos, *BPDU guard* y *portfast* en los puestos, troncales sin negociación y VLAN nativa "aparcada" (999) | rol `red_fisica`, `docs/red.md` |
 | M13 | **k3s aislado por proyecto**: un namespace, una cuota y una NetworkPolicy por proyecto; contenedores sin root; secretos cifrados en disco | rol `k3s` |
 | M14 | **Bloqueo de fuerza bruta en el firewall**: OPNsense bloquea la IP tras varios intentos de acceso fallidos a su web o SSH | OPNsense (de serie) |
@@ -82,7 +84,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 
 | # | Riesgo | P | I | Nivel | Tratamiento y medidas | Pendiente |
 |---|---|---|---|---|---|---|
-| RS-01 | Fuerza bruta contra el inicio de sesión del portal de clientes | 2 | 2 | 🟡 4 | Reducir: M11 (contraseñas fuertes con hash lento) | **Limitar los intentos** (en Traefik o en el portal) antes de abrir el portal a Internet |
+| RS-01 | Fuerza bruta contra el inicio de sesión del portal de clientes | 1 | 2 | 🟢 2 | Reducir: M11 (contraseñas fuertes con hash lento) y M17 (límite de intentos por IP y por usuario) | — |
 | RS-02 | Un fallo en el portal o en una app de k3s permite entrar en ese servidor | 2 | 2 | 🟡 4 | Reducir: M2 (el atacante queda dentro de la DMZ), M13 | — (M15 desde el 2026-10-22) |
 | RS-03 | Desde un servidor de la DMZ ya comprometido, saltar a la red interna | 1 | 3 | 🟡 3 | Reducir: M1, M2. La extranet solo llega a su propia base de datos y PostgreSQL solo acepta cada usuario desde su IP (`pg_hba`) | — |
 | RS-04 | Denegación de servicio (DoS) contra la conexión de la sede | 1 | 2 | 🟢 2 | Aceptar: no podemos parar un ataque grande con una sola línea. La entrada de la VPN puede pasar por el VPS del cloud | — |
@@ -93,7 +95,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 |---|---|---|---|---|---|---|
 | RS-05 | Contraseñas débiles o de laboratorio que llegan a producción | 1 | 3 | 🟡 3 | Reducir: todas las contraseñas son aleatorias y van en el Vault (M5). La única de laboratorio (usuario web de OPNsense, 4 caracteres) se cambió el 2026-10-22 por una aleatoria de 20, y Ansible ya no deja volver a poner una corta (M16) | — |
 | RS-06 | Robo o pérdida del portátil de un teletrabajador (con su clave de VPN) | 2 | 2 | 🟡 4 | Reducir: M3 (cada clave es personal y no llega a la administración). Se revoca quitando su clave de la lista y aplicando `sede.yml` (contingencia, E10; OPNsense borra su peer) | — |
-| RS-07 | Robo de las credenciales de un administrador (su equipo o su clave SSH) | 1 | 3 | 🟡 3 | Reducir: M10, M14 | **Segundo factor (TOTP)** en Proxmox y OPNsense. Desactivar del todo el acceso SSH con contraseña (hoy solo está bloqueado para root) |
+| RS-07 | Robo de las credenciales de un administrador (su equipo o su clave SSH) | 1 | 3 | 🟡 3 | Reducir: M10 (SSH solo con clave en todas las máquinas desde el 2026-10-22), M14 | **Segundo factor (TOTP)** en las webs de Proxmox y OPNsense (necesita el móvil del administrador) |
 | RS-08 | Fuga de secretos por el repositorio (Gitea o espejo de GitHub) | 1 | 3 | 🟡 3 | Reducir: M5. El repositorio es privado y el token de GitHub solo puede escribir en ese repositorio | — |
 
 ### 4.3 Software y configuración
@@ -114,7 +116,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 | RS-15 | Corte de luz. **La centralita no tiene SAI**: se apaga de golpe | 2 | 2 | 🟡 4 | Aceptar el corte (no hay SAI) y reducir el daño: (1) **vuelve sola y en orden**: Proxmox enciende OPNsense, espera 45 s, luego DNS/DHCP, PostgreSQL y el resto (`arranque`/`espera` en el inventario); (2) **los servicios reintentan** si la base de datos aún no está (Gitea, Wiki.js, extranet, Grafana, node_exporter: `Restart=always`); (3) **nada se corrompe sin remedio**: ext4 con diario, PostgreSQL con su registro (WAL) y copias diarias (M6); (4) **avisa el VPS del cloud**, que está fuera: si la sede no responde 3 minutos llega un aviso al móvil (ntfy) y otro cuando vuelve | **BIOS de la centralita: encender al volver la corriente** (si no, se queda apagada). El corte simulado ya está hecho en el laboratorio (2026-10-22, `docs/simulacro.md`) |
 | RS-16 | Cae OPNsense y la sede se queda sin red | 1 | 3 | 🟡 3 | Reducir: su configuración está en Git y se rehace en menos de 2 minutos (M4, M7) | — |
 | RS-17 | Se pierde la contraseña del Vault: los secretos quedan inaccesibles | 1 | 3 | 🟡 3 | Reducir: guardada también en el gestor de contraseñas del administrador (comprobada byte a byte el 2026-10-22) | — |
-| RS-18 | Algo falla y nadie se entera a tiempo | 2 | 2 | 🟡 4 | Reducir: M8. Lo gordo (sede caída, portal caído, sin latido, sin copias) ya avisa al móvil desde el cloud | **Avisos de las alertas de Prometheus** (disco, memoria, un servicio interno caído): hoy solo se ven en Grafana |
+| RS-18 | Algo falla y nadie se entera a tiempo | 1 | 2 | 🟢 2 | Reducir: M8. Todas las alertas llegan al móvil (Prometheus vía Alertmanager; la sede entera, desde el cloud). Probado el 2026-10-22 parando Squid. Ojo: un servicio que sigue "activo" sin hacer su trabajo solo se detecta si hay una sonda que lo pruebe (caso de Kea tras el corte de luz) | Sonda de DHCP en Prometheus |
 | RS-19 | Un servicio externo deja de estar disponible (VPS del cloud, GitHub) | 2 | 1 | 🟢 2 | Aceptar: la sede funciona sin ellos. Gitea es el repositorio principal; GitHub solo es una copia | — |
 
 ### 4.5 Red física y personas
@@ -124,7 +126,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 | RS-20 | Alguien enchufa un equipo propio o un switch a un puerto de la oficina | 2 | 2 | 🟡 4 | Reducir: M12 (el puerto se apaga si detecta un switch) y M1 (un puesto solo llega a lo que llegan los empleados) | — |
 | RS-21 | Un invitado de la WiFi intenta llegar a la red interna | 2 | 2 | 🟡 4 | Reducir: la VLAN 50 de invitados solo sale a Internet (M1) | — |
 | RS-22 | Una caja de cliente es manipulada (está en casa del cliente) | 2 | 2 | 🟡 4 | Reducir: M3 (desde la VPN, las cajas no llegan a nada de la sede), cortafuegos propio en la caja. Se da de baja quitando su clave pública del inventario (contingencia, E11; Ansible la quita también del portal; probado 2026-10-22) | — |
-| RS-23 | Fuga de datos personales de clientes (RGPD) | 1 | 3 | 🟡 3 | Reducir: M2, M11, M6. Solo se guardan los datos necesarios (nombre, usuario y correo) | Escribir el registro de tratamiento y cuánto tiempo se guardan los datos |
+| RS-23 | Fuga de datos personales de clientes (RGPD) | 1 | 3 | 🟡 3 | Reducir: M2, M11, M6, M18. Registro de tratamientos y plazos en `docs/rgpd.md` | Caducidad de las copias externas; avisos sin nombres de clientes (ver `docs/rgpd.md`, apartado 6) |
 
 ## 5. Plan de acción
 
@@ -133,15 +135,15 @@ Lo pendiente, en orden. Las tareas técnicas se hacen como el resto: un rol o un
 | Prioridad | Acción | Riesgos | Cuándo |
 |---|---|---|---|
 | 1 | ~~Cambiar las contraseñas de laboratorio por otras aleatorias del Vault~~ (hecho 2026-10-22, M16) | RS-05 | Hecho |
-| 2 | Avisos de las alertas de Prometheus por ntfy (Alertmanager); los del cloud ya funcionan | RS-18 | Fase 5 |
+| 2 | ~~Avisos de las alertas de Prometheus por ntfy (Alertmanager)~~ (hecho 2026-10-22) | RS-18 | Hecho |
 | 3 | ~~Actualizaciones automáticas de seguridad en todos los servidores~~ (hecho 2026-10-22, M15) | RS-09, RS-02 | Hecho |
-| 4 | Límite de intentos en el inicio de sesión del portal | RS-01 | Antes de publicar el portal en Internet |
-| 5 | Segundo factor (TOTP) en Proxmox y OPNsense y SSH sin contraseña en todos los servidores | RS-07 | Fase 5 |
+| 4 | ~~Límite de intentos en el inicio de sesión del portal~~ (hecho 2026-10-22, M17) | RS-01 | Hecho |
+| 5 | Segundo factor (TOTP) en Proxmox y OPNsense (~~SSH sin contraseña en todos los servidores~~: hecho 2026-10-22) | RS-07 | Con el administrador (necesita su móvil) |
 | 6 | Copia vzdump en un disco USB o NAS, además del disco del servidor | RS-14 | Al montar la centralita |
 | 7 | BIOS de la centralita: encender al volver la corriente (~~prueba de corte simulado~~: hecha el 2026-10-22) | RS-15 | Al montar la centralita |
 | 8 | ~~Contraseña del Vault en el gestor de contraseñas~~ (hecho 2026-10-22) | RS-17 | Hecho |
 | 9 | ~~Procedimientos de baja en el plan de contingencia, automatizados y probados~~ (E10, E11; hecho 2026-10-22) | RS-06, RS-22 | Hecho |
-| 10 | Registro de tratamiento de datos (RGPD) | RS-23 | Fase 5 |
+| 10 | ~~Registro de tratamiento de datos (RGPD)~~ (hecho 2026-10-22, `docs/rgpd.md`) | RS-23 | Hecho |
 
 Con las acciones 1 y 3 hechas (2026-10-22), solo queda un riesgo en 🔴 alto: RS-14 (servidor único con la copia vzdump en el mismo disco), que se resuelve con la acción 6 al montar la centralita, porque necesita un disco aparte.
 

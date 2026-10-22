@@ -65,11 +65,18 @@
   roles:
     - node_exporter
 
-- name: Actualizaciones automáticas de seguridad (Proxmox y OPNsense se actualizan a mano, ver docs/contingencia.md)
+- name: Acceso SSH solo con clave (también Proxmox)
+  hosts: all:!cajas:!gns3
+  gather_facts: true
+  roles:
+    - ssh_seguro
+
+- name: Actualizaciones automáticas de seguridad y registros de 30 días (Proxmox y OPNsense se actualizan a mano, ver docs/contingencia.md)
   hosts: all:!proxmox:!cajas:!gns3
   gather_facts: true
   roles:
     - actualizaciones
+    - registros
 
 - name: Copias externas al cloud (restic, por el enlace)
   hosts: copias_externas

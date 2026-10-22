@@ -80,4 +80,5 @@ ansible bbdd -m shell -a "grep -hE 'not properly shut down|redo done|ready to ac
 echo "5. Pruebas de la red"
 r "Aislamiento entre VLANs (probar-red.sh)" "$(scripts/probar-red.sh >/dev/null 2>&1 && echo bien || echo mal)" bien
 r "VPN (probar-vpn.sh)"                     "$(scripts/probar-vpn.sh >/dev/null 2>&1 && echo bien || echo mal)" bien
+r "DHCP en las VLANs (probar-dhcp.sh)"      "$(scripts/probar-dhcp.sh >/dev/null 2>&1 && echo bien || echo mal)" bien
 [ $fallos -eq 0 ] && echo "Todo como se esperaba." || { echo "$fallos comprobación(es) no coinciden."; exit 1; }

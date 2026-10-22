@@ -1,0 +1,13 @@
+- name: Carpeta de ajustes de journald
+  ansible.builtin.file: { path: /etc/systemd/journald.conf.d, state: directory, mode: "0755" }
+
+- name: Los registros del sistema se guardan {{ registros_dias }} días como mucho
+  ansible.builtin.copy:
+    dest: /etc/systemd/journald.conf.d/10-nosub.conf
+    mode: "0644"
+    content: |
+      # Gestionado por Ansible (nosub-infra, rol registros)
+      [Journal]
+      MaxRetentionSec={{ registros_dias }}day
+      SystemMaxUse={{ registros_tamano_max }}
+  notify: Reiniciar journald

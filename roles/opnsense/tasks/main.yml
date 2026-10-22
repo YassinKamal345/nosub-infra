@@ -104,16 +104,24 @@
 
 # Se mira por SSH (solo lectura) en vez de probar a entrar: cada intento fallido en la web acerca el bloqueo de la IP.
 # Sin comprobar la huella: OPNsense cambia de clave al reconstruirse y solo se lee un dato de la red de gestión.
-- name: ¿La web ya pide el código TOTP?
+# También se lee la semilla de root que tiene ahora: para entrar vale esa, no la del repositorio (al cambiar de
+# versión de las semillas, OPNsense aún tiene la antigua hasta que se aplica).
+- name: ¿La web ya pide el código TOTP? ¿Con qué semilla entra root ahora?
   when: not opn_primera_vez
   ansible.builtin.command:
-    # la orden remota va en un solo argumento: si no, la shell de OPNsense toma < y > por redirecciones
     argv: [ssh, -i, "{{ opnsense_clave_ssh | regex_replace('\\.pub$', '') }}", -o, BatchMode=yes, -o, ConnectTimeout=10,
            -o, StrictHostKeyChecking=no, -o, UserKnownHostsFile=/dev/null, -o, LogLevel=ERROR, "root@{{ opnsense_ip_gestion }}",
-           "grep -c '<authmode>{{ opnsense_totp_servidor }}</authmode>' /conf/config.xml"]
+           python3, "-"]
+    stdin: |
+      import json, xml.etree.ElementTree as E
+      s = E.parse("/conf/config.xml").getroot().find("system")
+      root = [u for u in s.findall("user") if u.findtext("name") == "root"][0]
+      print(json.dumps({"totp": (s.findtext("webgui/authmode") or "") == {{ opnsense_totp_servidor | to_json }},
+                        "semilla": root.findtext("otp_seed") or ""}))
   register: r_web_totp
   changed_when: false
-  failed_when: r_web_totp.rc > 1 or r_web_totp.stdout | length == 0
+  check_mode: false   # solo lee
+  no_log: true
 
 - name: Aplicar la configuración en OPNsense
   ansible.builtin.command:
@@ -126,7 +134,7 @@
     OPN_WG_PRIVADAS: "{{ vault_wg_privadas | combine(opnsense_wg_claves_enlaces) | to_json }}"
     OPN_ADMINS: "{{ vault_opnsense_admins | to_json }}"
     OPN_TOTP: "{{ opnsense_totp_semillas | to_json }}"
-    OPN_ENTRAR_CON_TOTP: "{{ '1' if not opn_primera_vez and (r_web_totp.stdout | default('0') | int) > 0 else '0' }}"
+    OPN_SEMILLA_ENTRAR: "{{ (r_web_totp.stdout | from_json).semilla if not opn_primera_vez and (r_web_totp.stdout | from_json).totp else '' }}"
   check_mode: false
   register: aplicar
   changed_when: "'CAMBIADO' in aplicar.stdout"

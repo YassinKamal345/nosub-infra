@@ -12,7 +12,7 @@ OPNsense guarda toda su configuración en un único config.xml. Este script:
 Uso:  opnsense-aplicar.py URL ESPEC.json [--simular]
 Variables: OPN_CLAVE (para entrar ahora), OPN_CLAVE_ROOT (la que debe tener root), OPN_ADMINS (JSON
 usuario -> contraseña de los administradores personales), OPN_TOTP (JSON usuario -> semilla TOTP en base32),
-OPN_ENTRAR_CON_TOTP ("1" si la web ya pide el código: se añade el de root a la contraseña) y
+OPN_SEMILLA_ENTRAR (si la web ya pide el código: la semilla de root que tiene ahora OPNsense) y
 OPN_WG_PRIVADAS (JSON con las claves privadas de WireGuard: servidor y cada usuario; de las cajas solo va su clave pública en ESPEC). Imprime CAMBIADO o SIN CAMBIOS en la última línea.
 """
 import base64, hashlib, hmac, json, os, re, struct, sys, time, uuid
@@ -371,8 +371,7 @@ def main():
     url, ruta = sys.argv[1:3]
     simular = "--simular" in sys.argv
     esp = json.load(open(ruta))
-    semilla = json.loads(os.environ["OPN_TOTP"])["root"] if os.environ.get("OPN_ENTRAR_CON_TOTP") == "1" else None
-    web = Web(url, "root", os.environ["OPN_CLAVE"], semilla)
+    web = Web(url, "root", os.environ["OPN_CLAVE"], os.environ.get("OPN_SEMILLA_ENTRAR") or None)
     actual = web.bajar()
     raiz = ET.fromstring(actual.encode())
     aplicar(raiz, esp)

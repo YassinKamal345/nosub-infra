@@ -263,10 +263,9 @@ def aplicar_wireguard(raiz, wg):
     clientes = base.find("client/clients")
     # Usuarios: su clave privada está en el Vault. Cajas: solo se conoce su clave pública (la privada no sale de la caja).
     pares = [(p, clave_publica(privadas[p["nombre"]])) for p in wg["usuarios"]] + [(c, c["publica"]) for c in wg.get("cajas", [])]
-    nombres = {p["nombre"] for p, _ in pares}
+    # Fuera todos los peers: así desaparecen los que ya no están en la lista (bajas). Los enlaces se vuelven a poner abajo.
     for c in list(clientes):
-        if c.findtext("name") in nombres:
-            clientes.remove(c)
+        clientes.remove(c)
     uuids = []
     for p, publica in pares:
         u = uid("wg-usuario", p["nombre"]); uuids.append(u)

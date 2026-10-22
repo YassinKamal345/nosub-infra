@@ -3,6 +3,9 @@
   gestion.py tablas                 crea las tablas que falten
   gestion.py cliente '<json>'       crea o actualiza un cliente y sus cajas
                                     (contraseña en la variable PORTAL_CLAVE_CLIENTE)
+  gestion.py bajas '<json>'         borra los clientes y cajas que ya no están en el inventario
+                                    ({"clientes": [usuarios], "cajas": [nombres]}); con un cliente
+                                    se borran también sus cajas e incidencias
 """
 import json
 import os
@@ -57,6 +60,12 @@ def cliente(con, datos):
     return cambio
 
 
+def bajas(con, datos):
+    cajas = con.execute("DELETE FROM cajas WHERE NOT (nombre = ANY(%s))", (datos["cajas"],)).rowcount
+    clientes = con.execute("DELETE FROM clientes WHERE NOT (usuario = ANY(%s))", (datos["clientes"],)).rowcount
+    return cajas + clientes > 0
+
+
 def main():
     orden = sys.argv[1] if len(sys.argv) > 1 else ""
     with conectar() as con:
@@ -64,6 +73,8 @@ def main():
             cambio = tablas(con)
         elif orden == "cliente" and len(sys.argv) == 3:
             cambio = cliente(con, json.loads(sys.argv[2]))
+        elif orden == "bajas" and len(sys.argv) == 3:
+            cambio = bajas(con, json.loads(sys.argv[2]))
         else:
             sys.exit(__doc__)
     print("CAMBIO" if cambio else "IGUAL")

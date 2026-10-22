@@ -206,26 +206,32 @@ Cada persona tiene su propia clave de VPN, así que se corta solo a esa persona.
 1. Quitar su línea de `opnsense_wg_usuarios` (`roles/opnsense/defaults/main.yml`).
 2. Borrar su clave privada del Vault: `ansible-vault edit inventories/sede/group_vars/all/vault.yml`,
    apartado `vault_wg_privadas`.
-3. Aplicar: `ansible-playbook playbooks/sede.yml -l proxmox`. OPNsense deja de aceptar su clave.
+3. Aplicar: `ansible-playbook playbooks/sede.yml -l proxmox`. OPNsense borra su peer (Ansible solo deja
+   los que están en la lista) y deja de aceptar su clave.
 4. Borrar su fichero `.conf` de `/root/nosub-wireguard/`.
 5. Si se ha **robado** el portátil: cambiar también las contraseñas a las que tenía acceso (Gitea,
    intranet) y revisar los registros de acceso.
 6. Hacer commit con el motivo.
-- **Comprobar:** en OPNsense (VPN → WireGuard → Estado) su peer ya no aparece en el servidor `sede`.
-- **Pendiente:** hoy su ficha queda en OPNsense, desactivada y sin uso. Falta que Ansible la borre sola.
+- **Comprobar:** en OPNsense (VPN → WireGuard) su peer ya no aparece; en el firewall,
+  `wg show wg0 allowed-ips` ya no muestra su IP.
 
 ### E11 · Baja, avería o robo de una caja
 
 **Baja del cliente o caja robada:**
 1. Quitar la caja de `inventories/cajas/hosts.yml` y borrar su clave pública
    `inventories/cajas/wireguard/<caja>.pub`.
-2. Aplicar `sede.yml`: OPNsense deja de aceptar su túnel y Prometheus deja de vigilarla.
-3. Quitarla del portal. **Hoy es un paso a mano** (pendiente de automatizar), en `bbdd`:
-   `sudo -u postgres psql extranet -c "DELETE FROM cajas WHERE nombre = '<caja>';"`.
-   Si el cliente se da de baja del todo, quitarlo también de `extranet_clientes` y borrarlo:
-   `... -c "DELETE FROM clientes WHERE usuario = '<usuario>';"` (se borran también sus cajas e
-   incidencias; quedan en las copias el tiempo que se guardan).
-4. Si se recupera el mini PC: borrar el disco antes de volver a usarlo.
+2. Si el cliente se da de baja del todo, quitarlo también de `extranet_clientes`
+   (`roles/extranet/defaults/main.yml`) y su contraseña del Vault (`vault_extranet.clientes`).
+3. Aplicar `ansible-playbook playbooks/sede.yml`. Con eso:
+   - OPNsense borra su peer y deja de aceptar su túnel;
+   - Prometheus deja de vigilarla;
+   - el portal borra la caja y, si se ha quitado el cliente, también al cliente, con sus cajas e
+     incidencias (quedan en las copias el tiempo que se guardan).
+4. Hacer commit con el motivo.
+5. Si se recupera el mini PC: borrar el disco antes de volver a usarlo.
+- **Comprobar:** `wg show wg0 allowed-ips` en el firewall ya no muestra su IP y el cliente ya no la ve
+  en el portal. **Probado el 2026-10-22** con una caja de prueba: alta con `caja_nueva.yml`, baja
+  así, y las otras cajas y la VPN siguieron bien (segunda pasada sin cambios).
 
 **Avería de la caja (mismo cliente, mini PC nuevo):**
 1. Instalar Proxmox en el mini PC nuevo y llevarlo a la VLAN 60 de la sede.

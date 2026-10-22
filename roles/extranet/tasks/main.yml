@@ -45,6 +45,17 @@
   register: r_clientes
   changed_when: "'CAMBIO' in r_clientes.stdout"
 
+# Bajas: lo que ya no está en extranet_clientes ni en inventories/cajas sale del portal (contingencia, E11).
+# Solo si el inventario de cajas está cargado: sin él, parecería que todas las cajas se han dado de baja.
+- name: Quitar del portal los clientes y cajas dados de baja
+  ansible.builtin.command:
+    argv: [python3, "{{ extranet_dir }}/gestion.py", bajas,
+           "{{ {'clientes': extranet_clientes | map(attribute='usuario') | list, 'cajas': groups['cajas']} | to_json }}"]
+  environment: "{{ extranet_entorno }}"
+  when: "'cajas' in groups"
+  register: r_bajas
+  changed_when: "'CAMBIO' in r_bajas.stdout"
+
 # ---------- 3. Servicio ----------
 - name: Servicio systemd
   ansible.builtin.template: { src: extranet.service.j2, dest: /etc/systemd/system/extranet.service, mode: "0644" }

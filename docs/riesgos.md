@@ -90,7 +90,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 | # | Riesgo | P | I | Nivel | Tratamiento y medidas | Pendiente |
 |---|---|---|---|---|---|---|
 | RS-05 | Contraseñas débiles o de laboratorio que llegan a producción | 3 | 3 | 🔴 9 | Reducir: casi todas las contraseñas son aleatorias y van en el Vault (M5) | **Cambiar las de laboratorio** (p. ej. el usuario web de OPNsense) antes de montar la centralita |
-| RS-06 | Robo o pérdida del portátil de un teletrabajador (con su clave de VPN) | 2 | 2 | 🟡 4 | Reducir: M3 (cada clave es personal y no llega a la administración). Se revoca quitando su clave de la lista y aplicando `sede.yml` (contingencia, E10) | Que Ansible borre también su ficha de OPNsense |
+| RS-06 | Robo o pérdida del portátil de un teletrabajador (con su clave de VPN) | 2 | 2 | 🟡 4 | Reducir: M3 (cada clave es personal y no llega a la administración). Se revoca quitando su clave de la lista y aplicando `sede.yml` (contingencia, E10; OPNsense borra su peer) | — |
 | RS-07 | Robo de las credenciales de un administrador (su equipo o su clave SSH) | 1 | 3 | 🟡 3 | Reducir: M10, M14 | **Segundo factor (TOTP)** en Proxmox y OPNsense. Desactivar del todo el acceso SSH con contraseña (hoy solo está bloqueado para root) |
 | RS-08 | Fuga de secretos por el repositorio (Gitea o espejo de GitHub) | 1 | 3 | 🟡 3 | Reducir: M5. El repositorio es privado y el token de GitHub solo puede escribir en ese repositorio | — |
 
@@ -121,7 +121,7 @@ Medidas comunes que reducen muchos riesgos a la vez. En la tabla del apartado 4 
 |---|---|---|---|---|---|---|
 | RS-20 | Alguien enchufa un equipo propio o un switch a un puerto de la oficina | 2 | 2 | 🟡 4 | Reducir: M12 (el puerto se apaga si detecta un switch) y M1 (un puesto solo llega a lo que llegan los empleados) | — |
 | RS-21 | Un invitado de la WiFi intenta llegar a la red interna | 2 | 2 | 🟡 4 | Reducir: la VLAN 50 de invitados solo sale a Internet (M1) | — |
-| RS-22 | Una caja de cliente es manipulada (está en casa del cliente) | 2 | 2 | 🟡 4 | Reducir: M3 (desde la VPN, las cajas no llegan a nada de la sede), cortafuegos propio en la caja. Se da de baja quitando su clave pública del inventario (contingencia, E11) | Que Ansible la quite también del portal (hoy, a mano) |
+| RS-22 | Una caja de cliente es manipulada (está en casa del cliente) | 2 | 2 | 🟡 4 | Reducir: M3 (desde la VPN, las cajas no llegan a nada de la sede), cortafuegos propio en la caja. Se da de baja quitando su clave pública del inventario (contingencia, E11; Ansible la quita también del portal; probado 2026-10-22) | — |
 | RS-23 | Fuga de datos personales de clientes (RGPD) | 1 | 3 | 🟡 3 | Reducir: M2, M11, M6. Solo se guardan los datos necesarios (nombre, usuario y correo) | Escribir el registro de tratamiento y cuánto tiempo se guardan los datos |
 
 ## 5. Plan de acción
@@ -138,7 +138,7 @@ Lo pendiente, en orden. Las tareas técnicas se hacen como el resto: un rol o un
 | 6 | Copia vzdump en un disco USB o NAS, además del disco del servidor | RS-14 | Al montar la centralita |
 | 7 | BIOS de la centralita: encender al volver la corriente; prueba de corte simulado | RS-15 | Al montar la centralita (la prueba, ya en el laboratorio) |
 | 8 | ~~Contraseña del Vault en el gestor de contraseñas~~ (hecho 2026-10-22) | RS-17 | Hecho |
-| 9 | ~~Procedimientos de baja en el plan de contingencia~~ (E10, E11). Falta automatizar la limpieza en OPNsense y en el portal | RS-06, RS-22 | Fase 5 |
+| 9 | ~~Procedimientos de baja en el plan de contingencia, automatizados y probados~~ (E10, E11; hecho 2026-10-22) | RS-06, RS-22 | Hecho |
 | 10 | Registro de tratamiento de datos (RGPD) | RS-23 | Fase 5 |
 
 Con las acciones 1, 3, 5 y 6 hechas, ningún riesgo queda en 🔴 alto.

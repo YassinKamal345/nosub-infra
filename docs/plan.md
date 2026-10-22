@@ -47,3 +47,10 @@ Copia resumida del plan (el detalle vive en Notion: "10. Proyecto ASIX — Plan 
 - [x] GNS3 (rol `gns3`, VM 210 a demanda, `playbooks/gns3.yml`): ensayo de R1-R3 y SW1 con FRRouting y los datos
   de `red_fisica.yml`; R1 sale por la VLAN 50 real (nodo Cloud). Pruebas: OSPF, rutas, DHCP, NAT y aislamiento
   entre clientes, todas bien; segunda pasada sin cambios
+
+## Fase 5 · Cierre
+- [x] 5.1 Plan de riesgos de seguridad (`docs/riesgos.md`): 23 riesgos valorados (probabilidad × impacto),
+  14 medidas ya montadas y plan de acción con 10 pendientes ordenados
+- [ ] 5.2 Plan de contingencia (`docs/contingencia.md`)
+- [ ] 5.3 Simulacro de restauración (restic + vzdump)
+- [ ] 5.4 Material para la defensa

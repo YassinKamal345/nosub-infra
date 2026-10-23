@@ -201,3 +201,42 @@
   until: r_apps.status in [200, 302]
   retries: 40
   delay: 3
+
+# ---------- 7. Estado para la sede (Grafana, panel ADMIN, fila "Clientes y cajas") ----------
+- name: Carpeta de métricas de node_exporter
+  ansible.builtin.file: { path: "{{ caja_metricas_dir }}", state: directory, mode: "0755" }
+
+- name: Script que resume el estado de la caja (túnel, AdGuard y apps; solo totales)
+  ansible.builtin.template: { src: nosub-estado-caja.j2, dest: /usr/local/sbin/nosub-estado-caja, mode: "0755" }
+
+- name: Servicio y temporizador del script (cada minuto)
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.f }}"
+    mode: "0644"
+    content: "{{ item.c }}"
+  loop:
+    - f: nosub-estado-caja.service
+      c: |
+        [Unit]
+        Description=Estado de la caja para Prometheus (nosub-infra)
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/nosub-estado-caja
+    - f: nosub-estado-caja.timer
+      c: |
+        [Unit]
+        Description=Estado de la caja para Prometheus, cada minuto (nosub-infra)
+        [Timer]
+        OnBootSec=1min
+        OnUnitActiveSec=1min
+        [Install]
+        WantedBy=timers.target
+  loop_control: { label: "{{ item.f }}" }
+  register: r_unidades_estado
+
+- name: Activar el temporizador
+  ansible.builtin.systemd: { name: nosub-estado-caja.timer, state: started, enabled: true, daemon_reload: "{{ r_unidades_estado.changed }}" }
+
+- name: Primer estado ya
+  ansible.builtin.command: /usr/local/sbin/nosub-estado-caja
+  args: { creates: "{{ caja_metricas_dir }}/caja.prom" }

@@ -1,0 +1,57 @@
+#!/usr/bin/python3
+# Gestionado por Ansible (nosub-infra, rol caja). Deja para Prometheus (node_exporter, textfile) el estado de la caja,
+# que la sede ve en Grafana (panel ADMIN, fila "Clientes y cajas"):
+#   nosub_caja_tunel_ultimo_saludo        hora (unix) del último saludo del túnel con la sede (0 = nunca)
+#   nosub_caja_dns_consultas              consultas DNS de la casa en las últimas 24 h (AdGuard)
+#   nosub_caja_dns_bloqueadas             de ellas, bloqueadas (anuncios, rastreadores)
+#   nosub_caja_dns_tiempo_medio_segundos  tiempo medio de respuesta de AdGuard
+#   nosub_caja_app_activa{app}            1 si la app está en marcha (también la página de inicio)
+# Solo totales: ni dominios ni equipos de la casa salen de la caja (RGPD, ver docs/rgpd.md).
+import base64, json, os, subprocess, urllib.request
+
+DIR = "{{ caja_metricas_dir }}"
+APPS = {{ (['inicio'] + (apps | map('replace', '_', '-') | list)) | to_json }}
+lineas = []
+
+def metrica(nombre, ayuda, valores):
+    lineas.append(f"# HELP {nombre} {ayuda}")
+    lineas.append(f"# TYPE {nombre} gauge")
+    for etiquetas, valor in valores:
+        lineas.append(f"{nombre}{etiquetas} {valor}")
+
+# Túnel con la sede
+try:
+    salida = subprocess.run(["wg", "show", "wg0", "latest-handshakes"], capture_output=True, text=True, timeout=10).stdout
+    saludo = max([int(l.split()[1]) for l in salida.splitlines() if l.strip()] or [0])
+except (OSError, subprocess.SubprocessError, ValueError):
+    saludo = 0
+metrica("nosub_caja_tunel_ultimo_saludo", "Hora (unix) del último saludo del túnel con la sede", [("", saludo)])
+
+# AdGuard (si no responde, no se publica nada y en Grafana se ve el hueco)
+try:
+    clave = open("{{ caja_clave_fichero }}").read().strip()
+    auth = base64.b64encode(("{{ caja_adguard_usuario_web }}:" + clave).encode()).decode()
+    pet = urllib.request.Request("http://127.0.0.1:{{ caja_adguard_puerto_web }}/control/stats", headers={"Authorization": "Basic " + auth})
+    st = json.load(urllib.request.urlopen(pet, timeout=10))
+    metrica("nosub_caja_dns_consultas", "Consultas DNS de la casa en las últimas 24 horas", [("", st["num_dns_queries"])])
+    metrica("nosub_caja_dns_bloqueadas", "Consultas DNS bloqueadas en las últimas 24 horas", [("", st["num_blocked_filtering"])])
+    metrica("nosub_caja_dns_tiempo_medio_segundos", "Tiempo medio de respuesta de AdGuard", [("", st["avg_processing_time"])])
+except (OSError, ValueError, KeyError):
+    pass
+
+# Apps (contenedores del proyecto "caja" de docker compose)
+try:
+    salida = subprocess.run(["docker", "ps", "-a", "--filter", "label=com.docker.compose.project=caja",
+                             "--format", '{{ '{{' }}.Label "com.docker.compose.service"{{ '}}' }} {{ '{{' }}.State{{ '}}' }}'],
+                            capture_output=True, text=True, timeout=20).stdout
+    estado = dict(l.split(None, 1) for l in salida.splitlines() if " " in l)
+except (OSError, subprocess.SubprocessError):
+    estado = {}
+metrica("nosub_caja_app_activa", "1 si la app de la caja está en marcha",
+        [(f'{{ '{{' }}app="{a}"{{ '}}' }}', int(estado.get(a, "").strip() == "running")) for a in APPS])
+
+temporal = f"{DIR}/caja.prom.{os.getpid()}"
+with open(temporal, "w") as f:
+    f.write("\n".join(lineas) + "\n")
+os.chmod(temporal, 0o644)
+os.replace(temporal, f"{DIR}/caja.prom")

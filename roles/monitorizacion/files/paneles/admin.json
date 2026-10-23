@@ -868,17 +868,1158 @@
   },
   {
    "id": 18,
-   "type": "text",
-   "title": "Clientes y cajas (fase 4)",
+   "type": "stat",
+   "title": "Cajas conectadas",
+   "description": "Cajas que responden por la VPN",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
    "gridPos": {
     "x": 0,
     "y": 38,
-    "w": 24,
-    "h": 3
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum(up{job=\"cajas\"})",
+     "refId": "A",
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
    },
    "options": {
-    "mode": "markdown",
-    "content": "Aquí aparecerán los clientes, sus cajas y el estado de sus túneles WireGuard cuando exista el producto (fase 4)."
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   }
+  },
+  {
+   "id": 19,
+   "type": "stat",
+   "title": "Cajas sin conexión",
+   "description": "Cajas que no responden por la VPN (túnel caído, apagada o sin Internet en casa)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 38,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "count(up{job=\"cajas\"} == 0) or vector(0)",
+     "refId": "A",
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   }
+  },
+  {
+   "id": 20,
+   "type": "stat",
+   "title": "Túnel más antiguo",
+   "description": "El mayor tiempo desde el último saludo WireGuard de una caja con la sede (cada 2 min es normal)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 38,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "max(time() - nosub_caja_tunel_ultimo_saludo)",
+     "refId": "A",
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 240
+       },
+       {
+        "color": "red",
+        "value": 300
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   }
+  },
+  {
+   "id": 21,
+   "type": "stat",
+   "title": "Apps caídas",
+   "description": "Apps de los clientes (y páginas de inicio) que no están en marcha",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 38,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "count(nosub_caja_app_activa == 0) or vector(0)",
+     "refId": "A",
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   }
+  },
+  {
+   "id": 22,
+   "type": "stat",
+   "title": "Consultas DNS (24 h)",
+   "description": "Consultas DNS de todas las casas, según AdGuard",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 38,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum(nosub_caja_dns_consultas)",
+     "refId": "A",
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   }
+  },
+  {
+   "id": 23,
+   "type": "stat",
+   "title": "Anuncios bloqueados (24 h)",
+   "description": "Parte de las consultas DNS que AdGuard ha bloqueado (anuncios y rastreadores)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 20,
+    "y": 38,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "100 * sum(nosub_caja_dns_bloqueadas) / sum(nosub_caja_dns_consultas)",
+     "refId": "A",
+     "legendFormat": "",
+     "instant": true,
+     "range": false
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "purple",
+        "value": null
+       }
+      ]
+     },
+     "decimals": 1
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   }
+  },
+  {
+   "id": 24,
+   "type": "table",
+   "title": "Cajas de los clientes",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "description": "Una fila por caja. El túnel, por la VPN; el resto, lo que la caja envía cada minuto (solo totales, sin dominios: RGPD)",
+   "gridPos": {
+    "x": 0,
+    "y": 42,
+    "w": 24,
+    "h": 7
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "max by (nombre, cliente) (up{job=\"cajas\"})",
+     "refId": "A",
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "max by (nombre, cliente) (time() - nosub_caja_tunel_ultimo_saludo)",
+     "refId": "B",
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "100 * (1 - avg by (nombre, cliente) (rate(node_cpu_seconds_total{job=\"cajas\", mode=\"idle\"}[5m])))",
+     "refId": "C",
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "100 * (1 - max by (nombre, cliente) (node_memory_MemAvailable_bytes{job=\"cajas\"} / node_memory_MemTotal_bytes{job=\"cajas\"}))",
+     "refId": "D",
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "100 * (1 - max by (nombre, cliente) (node_filesystem_avail_bytes{job=\"cajas\", mountpoint=\"/\"} / node_filesystem_size_bytes{job=\"cajas\", mountpoint=\"/\"}))",
+     "refId": "E",
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum by (nombre, cliente) (nosub_caja_app_activa)",
+     "refId": "F",
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum by (nombre, cliente) (1 - nosub_caja_app_activa)",
+     "refId": "G",
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "100 * max by (nombre, cliente) (nosub_caja_dns_bloqueadas) / max by (nombre, cliente) (nosub_caja_dns_consultas)",
+     "refId": "H",
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "max by (nombre, cliente) (nosub_reinicio_pendiente{job=\"cajas\"})",
+     "refId": "I",
+     "legendFormat": "",
+     "instant": true,
+     "range": false,
+     "format": "table"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "merge",
+     "options": {}
+    },
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true
+      },
+      "renameByName": {
+       "Value #A": "Túnel",
+       "Value #B": "Último saludo",
+       "Value #C": "CPU",
+       "Value #D": "RAM",
+       "Value #E": "Disco",
+       "Value #F": "Apps en marcha",
+       "Value #G": "Apps caídas",
+       "Value #H": "Bloqueado (24 h)",
+       "Value #I": "Reinicio pendiente",
+       "nombre": "Caja",
+       "cliente": "Cliente"
+      },
+      "indexByName": {
+       "nombre": 0,
+       "cliente": 1,
+       "Value #A": 2,
+       "Value #B": 3,
+       "Value #C": 4,
+       "Value #D": 5,
+       "Value #E": 6,
+       "Value #F": 7,
+       "Value #G": 8,
+       "Value #H": 9,
+       "Value #I": 10
+      }
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "align": "auto",
+      "cellOptions": {
+       "type": "auto"
+      }
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Túnel"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "Conectada",
+            "color": "green"
+           },
+           "0": {
+            "text": "Sin conexión",
+            "color": "red"
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "custom.width",
+        "value": 130
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Último saludo"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "s"
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "green",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": 240
+          },
+          {
+           "color": "red",
+           "value": 300
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-text"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "CPU"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "percent"
+       },
+       {
+        "id": "min",
+        "value": 0
+       },
+       {
+        "id": "max",
+        "value": 100
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "green",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": 70
+          },
+          {
+           "color": "red",
+           "value": 90
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "gauge",
+         "mode": "lcd",
+         "valueDisplayMode": "text"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "RAM"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "percent"
+       },
+       {
+        "id": "min",
+        "value": 0
+       },
+       {
+        "id": "max",
+        "value": 100
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "green",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": 70
+          },
+          {
+           "color": "red",
+           "value": 90
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "gauge",
+         "mode": "lcd",
+         "valueDisplayMode": "text"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Disco"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "percent"
+       },
+       {
+        "id": "min",
+        "value": 0
+       },
+       {
+        "id": "max",
+        "value": 100
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "green",
+           "value": null
+          },
+          {
+           "color": "orange",
+           "value": 70
+          },
+          {
+           "color": "red",
+           "value": 90
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "gauge",
+         "mode": "lcd",
+         "valueDisplayMode": "text"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Apps caídas"
+      },
+      "properties": [
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "green",
+           "value": null
+          },
+          {
+           "color": "red",
+           "value": 1
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "basic"
+        }
+       },
+       {
+        "id": "custom.width",
+        "value": 110
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Apps en marcha"
+      },
+      "properties": [
+       {
+        "id": "custom.width",
+        "value": 130
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Bloqueado (24 h)"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "percent"
+       },
+       {
+        "id": "decimals",
+        "value": 1
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "color": "purple",
+           "value": null
+          }
+         ]
+        }
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-text"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Reinicio pendiente"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "0": {
+            "text": "No",
+            "color": "green"
+           },
+           "1": {
+            "text": "Sí",
+            "color": "orange"
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-text"
+        }
+       },
+       {
+        "id": "custom.width",
+        "value": 150
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": false
+    },
+    "sortBy": [
+     {
+      "displayName": "Caja",
+      "desc": false
+     }
+    ]
+   }
+  },
+  {
+   "id": 25,
+   "type": "state-timeline",
+   "title": "Túnel de cada caja (verde = conectada)",
+   "description": "Si una caja deja de responder por la VPN, aquí se ve cuándo y cuánto tiempo",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 49,
+    "w": 12,
+    "h": 7
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "max by (nombre) (up{job=\"cajas\"})",
+     "refId": "A",
+     "legendFormat": "{{nombre}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "1": {
+         "text": "Conectada"
+        },
+        "0": {
+         "text": "Sin conexión"
+        }
+       }
+      }
+     ]
+    },
+    "overrides": []
+   },
+   "options": {
+    "showValue": "never",
+    "mergeValues": true,
+    "rowHeight": 0.8,
+    "legend": {
+     "showLegend": false
+    }
+   }
+  },
+  {
+   "id": 26,
+   "type": "timeseries",
+   "title": "Tráfico por el túnel",
+   "description": "Lo que pasa por WireGuard entre cada caja y la sede (monitorización, Ansible). Arriba, recibido; abajo, enviado",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 49,
+    "w": 12,
+    "h": 7
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "sum by (nombre) (rate(node_network_receive_bytes_total{job=\"cajas\", device=\"wg0\"}[5m])) * 8",
+     "refId": "A",
+     "legendFormat": "{{nombre}} recibido"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "-sum by (nombre) (rate(node_network_transmit_bytes_total{job=\"cajas\", device=\"wg0\"}[5m])) * 8",
+     "refId": "B",
+     "legendFormat": "{{nombre}} enviado"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bps",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "custom": {
+      "fillOpacity": 10,
+      "lineWidth": 1
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   }
+  },
+  {
+   "id": 27,
+   "type": "bargauge",
+   "title": "Consultas DNS por casa (24 h)",
+   "description": "Consultas de cada casa y cuántas ha bloqueado AdGuard",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 56,
+    "w": 12,
+    "h": 7
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "max by (nombre) (nosub_caja_dns_consultas)",
+     "refId": "A",
+     "legendFormat": "{{nombre}} · consultas"
+    },
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "max by (nombre) (nosub_caja_dns_bloqueadas)",
+     "refId": "B",
+     "legendFormat": "{{nombre}} · bloqueadas"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "min": 0,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     },
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "orientation": "horizontal",
+    "displayMode": "gradient",
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "showUnfilled": true
+   }
+  },
+  {
+   "id": 28,
+   "type": "state-timeline",
+   "title": "Apps de las cajas (verde = en marcha)",
+   "description": "Cada app de cada cliente, también la página de inicio de la caja",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 56,
+    "w": 12,
+    "h": 7
+   },
+   "targets": [
+    {
+     "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+     },
+     "expr": "max by (nombre, app) (nosub_caja_app_activa)",
+     "refId": "A",
+     "legendFormat": "{{nombre}} · {{app}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "1": {
+         "text": "En marcha"
+        },
+        "0": {
+         "text": "Parada"
+        }
+       }
+      }
+     ]
+    },
+    "overrides": []
+   },
+   "options": {
+    "showValue": "never",
+    "mergeValues": true,
+    "rowHeight": 0.8,
+    "legend": {
+     "showLegend": false
+    }
    }
   }
  ],

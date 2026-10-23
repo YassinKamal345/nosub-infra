@@ -25,3 +25,6 @@ caja_wg_clave: /etc/wireguard/caja.key
 caja_wg_clave_servidor: "{{ lookup('ansible.builtin.pipe', 'echo ' ~ vault_wg_privadas['servidor'] ~ ' | wg pubkey') }}"
 caja_wg_tabla: 51820                    # tabla de rutas propia del túnel
 caja_wg_dir_publicas: "{{ playbook_dir }}/../inventories/cajas/wireguard"
+
+# Estado de la caja para Grafana (túnel, AdGuard y apps), cada minuto por node_exporter (textfile)
+caja_metricas_dir: /var/lib/node_exporter

@@ -1,7 +1,8 @@
 # Rol caja
 
 Monta la **caja del cliente**: el producto de NoSub. En la realidad es un mini PC N100 con Proxmox y la caja
-es un contenedor Debian dentro de él. En el laboratorio, ese contenedor está en prx (rol `caja_lab`).
+es un contenedor Debian dentro de él. En el laboratorio, ese contenedor está en prx (rol `caja_lab`);
+con un mini PC de verdad, lo crea el rol `caja_minipc`.
 El rol es el mismo en los dos casos.
 
 | Qué | Dónde (en la red de casa del cliente) |

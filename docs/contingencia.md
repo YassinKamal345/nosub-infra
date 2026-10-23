@@ -236,10 +236,11 @@ Cada persona tiene su propia clave de VPN, así que se corta solo a esa persona.
   así, y las otras cajas y la VPN siguieron bien (segunda pasada sin cambios).
 
 **Avería de la caja (mismo cliente, mini PC nuevo):**
-1. Instalar Proxmox en el mini PC nuevo y llevarlo a la VLAN 60 de la sede.
-2. `ansible-playbook playbooks/caja_nueva.yml -e caja=<caja>`: crea una clave nueva en la caja,
+1. Instalar Proxmox en el mini PC nuevo, llevarlo a la VLAN 60 de la sede y pasarle la clave de Ansible
+   (`ssh-copy-id`, ver `roles/caja_minipc/README.md`). Si su IP cambia, corregir `minipc.ip` en el inventario.
+2. `ansible-playbook playbooks/caja_nueva.yml -e caja=<caja>`: crea el contenedor y una clave nueva en la caja,
    sustituye la pública en el repositorio y OPNsense acepta la nueva. La clave del mini PC averiado deja
-   de servir.
+   de servir. Después, `playbooks/caja_entregar.yml -e caja=<caja>` y llevarlo a casa.
 3. Los datos de las apps del cliente estaban en la caja: si el disco se puede leer, copiar
    `/opt/caja/datos/`; si no, se pierden (se avisa al cliente al contratar).
 - **Comprobar:** `scripts/probar-cajas.sh <caja>`.

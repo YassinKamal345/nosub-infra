@@ -52,7 +52,7 @@ son contenedores LXC y algunas VMs, con **3 distribuciones**: Debian 13, Rocky L
 | Plan de riesgos de seguridad | 23 riesgos valorados, 19 medidas, plan de acción | `docs/riesgos.md` |
 | Plan de contingencia | 12 escenarios con pasos, RTO/RPO y simulacros | `docs/contingencia.md`, `docs/simulacro.md` |
 | Algún servicio en el cloud | VPS: página de estado, copias externas cifradas, entrada de la VPN | `roles/cloud`, `roles/copias_externas` |
-| Todo desplegable con Ansible | 24 roles, secretos con Ansible Vault | este repositorio |
+| Todo desplegable con Ansible | 25 roles, secretos con Ansible Vault | este repositorio |
 
 ## Uso
 

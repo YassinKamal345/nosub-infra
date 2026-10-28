@@ -45,7 +45,8 @@
     echo "Caja-A -> WAN de la sede ({{ vlan_enlace_r1.red | ansible.utils.ipaddr('2') | ansible.utils.ipaddr('address') }}): $(p Caja-A {{ vlan_enlace_r1.red | ansible.utils.ipaddr('2') | ansible.utils.ipaddr('address') }})"
     echo "Caja-A -> Internet (9.9.9.9): $(p Caja-A 9.9.9.9)"
     echo "Caja-A -> red del cliente B ({{ routers.R3.lan | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }}): $(p Caja-A {{ routers.R3.lan | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }})"
-    echo "Sede-WAN -> R2 ({{ routers.R2.ip_proveedor | ansible.utils.ipaddr('address') }}): $(p Sede-WAN {{ routers.R2.ip_proveedor | ansible.utils.ipaddr('address') }})"
+    {% set ip_r2 = (enlaces_serie | selectattr('cliente', 'equalto', 'R2') | first).red | ansible.utils.ipaddr('2') | ansible.utils.ipaddr('address') %}
+    echo "Sede-WAN -> R2 ({{ ip_r2 }}): $(p Sede-WAN {{ ip_r2 }})"
   register: r_pruebas
   changed_when: false
 

@@ -1,12 +1,15 @@
-! {{ equipo }}: {{ r.papel }}
+! {{ equipo }} ({{ r.modelo }}): {{ r.papel }}
 ! Generado por Ansible (nosub-infra, rol red_fisica). No editar a mano: cambiar los datos y volver a generar.
 ! Hace de router doméstico: NAT y DHCP para su red, y OSPF hacia el "Internet" simulado.
 {% include '_comun.j2' +%}
 !
-! ---------- "Internet" (VLAN {{ vlan_proveedor.id }} en SW1) ----------
-interface {{ r.puerto_proveedor }}
- description Internet simulado (R1 y los otros clientes)
- ip address {{ r.ip_proveedor | ansible.utils.ipaddr('address') }} {{ r.ip_proveedor | ansible.utils.ipaddr('netmask') }}
+{% set e = enlaces_serie | selectattr('cliente', 'equalto', equipo) | first %}
+! ---------- "Internet": enlace serie con R1 ({{ e.r1 }}) ----------
+interface {{ r.puerto_serie }}
+ description Internet simulado (enlace serie con R1 {{ e.r1 }})
+ ip address {{ e.red | ansible.utils.ipaddr('2') | ansible.utils.ipaddr('address') }} {{ e.red | ansible.utils.ipaddr('netmask') }}
+ encapsulation hdlc
+ bandwidth {{ (reloj_serie / 1000) | int }}
  ip nat outside
  no shutdown
 !
@@ -30,16 +33,16 @@ ip dhcp pool CLIENTE
 ! ---------- NAT: la red del cliente sale con la IP del router ----------
 ip access-list standard NAT-SALIDA
  permit {{ r.lan | ansible.utils.ipaddr('network') }} {{ r.lan | ansible.utils.ipaddr('hostmask') }}
-ip nat inside source list NAT-SALIDA interface {{ r.puerto_proveedor }} overload
+ip nat inside source list NAT-SALIDA interface {{ r.puerto_serie }} overload
 !
 ! ---------- OSPF: aprende de R1 la ruta por defecto y la WAN de la sede ----------
 ! La red del cliente no se anuncia: está detrás de NAT, como en una casa de verdad.
 router ospf 1
  router-id {{ r.loopback }}
  passive-interface default
- no passive-interface {{ r.puerto_proveedor }}
+ no passive-interface {{ r.puerto_serie }}
  network {{ r.loopback }} 0.0.0.0 area 0
- network {{ vlan_proveedor.red | ansible.utils.ipaddr('network') }} {{ vlan_proveedor.red | ansible.utils.ipaddr('hostmask') }} area 0
+ network {{ e.red | ansible.utils.ipaddr('network') }} {{ e.red | ansible.utils.ipaddr('hostmask') }} area 0
 !
 {% include '_vty.j2' +%}
 !

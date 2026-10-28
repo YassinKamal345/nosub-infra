@@ -77,6 +77,7 @@ class Diagrama:
 TRONCAL = f"strokeWidth=3;strokeColor={AZUL};"
 ACCESO = f"strokeWidth=1.5;strokeColor={GRIS};"
 TUNEL = f"strokeWidth=2;strokeColor={NARANJA};dashed=1;endArrow=classic;"
+SERIE = f"strokeWidth=2;strokeColor={NARANJA};"
 TITULO = "fontSize=20;fontStyle=1;fontColor=#1f4e79;"
 
 
@@ -95,38 +96,38 @@ def leyenda(d, x, y, filas):
 def red_fisica():
     d = Diagrama("Red física")
     d.texto("Red física de la sede NoSub (instalación en el centro)", 20, 10, 900, 30, TITULO)
-    centro = d.icono("nube", "Red del centro<br>(salida a Internet)", 700, 60, "derecha")
-    r1 = d.icono("router", "R1 · router de borde<br>NAT · OSPF", 700, 200, "derecha")
-    sw1 = d.icono("switch", "SW1 · switch núcleo<br>10.10.10.3 · raíz STP", 700, 330, "izquierda")
-    sw2 = d.icono("switch", "SW2 · switch de acceso<br>10.10.10.4", 1250, 330, "derecha")
-    r2 = d.icono("router", "R2 · casa cliente A<br>192.168.10.0/24<br><span style='font-weight:normal'>Gi0/0 ↔ SW1 Fa0/2<br>VLAN 100</span>", 130, 500, "derecha")
-    r3 = d.icono("router", "R3 · oficina cliente B<br>192.168.20.0/24<br><span style='font-weight:normal'>Gi0/0 ↔ SW1 Fa0/3<br>VLAN 100</span>", 390, 500, "derecha")
-    ca = d.icono("caja", "Caja cliente A<br>(mini PC)<br><span style='font-weight:normal'>en R2 Gi0/1</span>", 130, 680, "derecha")
-    cb = d.icono("caja", "Caja cliente B<br>(mini PC)<br><span style='font-weight:normal'>en R3 Gi0/1</span>", 390, 680, "derecha")
+    centro = d.icono("nube", "Red del centro<br>(Catalyst 3750-X · Internet)", 700, 60, "derecha")
+    r1 = d.icono("router", "R1 · router de borde<br><span style='font-weight:normal'>Cisco 2621 · NAT · OSPF</span>", 700, 200, "derecha")
+    sw1 = d.icono("switch", "SW1 · switch núcleo<br><span style='font-weight:normal'>Catalyst 3560G<br>10.10.10.3 · raíz STP</span>", 700, 330, "izquierda")
+    sw2 = d.icono("switch", "SW2 · switch de acceso<br><span style='font-weight:normal'>HP ProCurve 2626<br>10.10.10.4</span>", 1250, 330, "derecha")
+    r2 = d.icono("router", "R2 · casa cliente A<br>192.168.10.0/24<br><span style='font-weight:normal'>Cisco 2610XM<br>Serial0/0 ↔ R1 Serial0/0</span>", 130, 500, "derecha")
+    r3 = d.icono("router", "R3 · oficina cliente B<br>192.168.20.0/24<br><span style='font-weight:normal'>Cisco 2620<br>Serial0/0 ↔ R1 Serial0/1</span>", 390, 500, "derecha")
+    ca = d.icono("caja", "Caja cliente A<br>(mini PC)<br><span style='font-weight:normal'>en R2 Fa0/0</span>", 130, 680, "derecha")
+    cb = d.icono("caja", "Caja cliente B<br>(mini PC)<br><span style='font-weight:normal'>en R3 Fa0/0</span>", 390, 680, "derecha")
     prx = d.icono("servidor", "Centralita · Proxmox VE<br>10.10.10.2<br><span style='font-weight:normal'>OPNsense y servidores<br>virtuales dentro</span>", 700, 490)
-    adm = d.icono("pc", "Puesto de administración<br><span style='font-weight:normal'>SW1 Fa0/4-5 · VLAN 10</span>", 900, 500)
-    lab = d.icono("caja", "Cajas en preparación<br><span style='font-weight:normal'>SW1 Fa0/6-8 · VLAN 60</span>", 1080, 500)
-    ap = d.icono("ap", "Punto de acceso WiFi<br>10.10.10.5<br><span style='font-weight:normal'>SW2 Fa0/1 · troncal<br>10 (nativa), 40, 50<br>SSID Empleados → 40<br>SSID Invitados → 50</span>", 1250, 500)
-    emp = d.icono("pc", "Puestos de empleados<br><span style='font-weight:normal'>SW2 Fa0/2-20 · VLAN 40</span>", 1420, 500)
+    adm = d.icono("pc", "Puesto de administración<br><span style='font-weight:normal'>SW1 Gi0/4-5 · VLAN 10</span>", 900, 500)
+    lab = d.icono("caja", "Cajas en preparación<br><span style='font-weight:normal'>SW1 Gi0/6-8 · VLAN 60</span>", 1080, 500)
+    ap = d.icono("ap", "Punto de acceso WiFi<br>10.10.10.5<br><span style='font-weight:normal'>SW2 puerto 1 · troncal<br>10 (nativa), 40, 50<br>SSID Empleados → 40<br>SSID Invitados → 50</span>", 1250, 500)
+    emp = d.icono("pc", "Puestos de empleados<br><span style='font-weight:normal'>SW2 puertos 2-20 · VLAN 40</span>", 1420, 500)
 
-    d.linea(centro, r1, "Gi0/0 · IP por DHCP", ACCESO, desplazar=(-75, 0))
-    d.linea(r1, sw1, "R1 Gi0/1 ↔ SW1 Fa0/1<br>troncal 99, 100", TRONCAL, desplazar=(-85, 0))
-    d.linea(sw1, r2, "", ACCESO + "exitX=0.25;exitY=1;exitDx=0;exitDy=0;", [(684, 430), (130, 430)])
-    d.linea(sw1, r3, "", ACCESO + "exitX=0.25;exitY=1;exitDx=0;exitDy=0;", [(684, 430), (390, 430)])
+    d.linea(centro, r1, "Fa0/0 · IP por DHCP", ACCESO, desplazar=(-75, 0))
+    d.linea(r1, sw1, "R1 Fa0/1 ↔ SW1 Gi0/3<br>VLAN 99", ACCESO, desplazar=(-85, 0))
+    d.linea(r1, r2, "10.255.0.0/30", SERIE + "exitX=0;exitY=0.3;exitDx=0;exitDy=0;", [(130, 210)], desplazar=(-148, 120))
+    d.linea(r1, r3, "10.255.0.4/30", SERIE + "exitX=0;exitY=0.7;exitDx=0;exitDy=0;", [(390, 223)], desplazar=(12, 120))
     d.linea(sw1, prx, "SW1 Gi0/1 ↔ Proxmox<br>troncal 10-60, 99", TRONCAL, desplazar=(-70, 42))
     d.linea(sw1, adm, "", ACCESO + "exitX=0.75;exitY=1;exitDx=0;exitDy=0;", [(716, 430), (900, 430)])
     d.linea(sw1, lab, "", ACCESO + "exitX=0.75;exitY=1;exitDx=0;exitDy=0;", [(716, 430), (1080, 430)])
-    d.linea(sw1, sw2, "SW1 Gi0/2 ↔ SW2 Gi0/1 · troncal 10, 40, 50", TRONCAL + "exitX=1;exitY=0.5;exitDx=0;exitDy=0;", desplazar=(0, -12))
+    d.linea(sw1, sw2, "SW1 Gi0/2 ↔ SW2 puerto 25 · troncal 10, 40, 50", TRONCAL + "exitX=1;exitY=0.5;exitDx=0;exitDy=0;", desplazar=(0, -12))
     d.linea(sw2, ap, "", TRONCAL)
     d.linea(sw2, emp, "", ACCESO + "exitX=0.75;exitY=1;exitDx=0;exitDy=0;", [(1266, 430), (1420, 430)])
     d.linea(r2, ca, "", ACCESO)
     d.linea(r3, cb, "", ACCESO)
 
-    d.caja("<b>Casas de los clientes</b> · Internet simulado<br>entre R1, R2 y R3 (VLAN 100, OSPF)", 50, 470, 530, 320,
+    d.caja("<b>Casas de los clientes</b> · Internet simulado<br>enlaces serie R1-R2 y R1-R3 (R1 = DCE, OSPF)", 50, 470, 530, 320,
            f"fillColor=none;dashed=1;strokeColor={NARANJA};verticalAlign=bottom;fontColor={NARANJA};spacingBottom=6;")
-    leyenda(d, 1180, 700, [(TRONCAL, "Troncal 802.1Q (varias VLANs)"), (ACCESO, "Acceso (una sola VLAN)")])
+    leyenda(d, 1180, 700, [(TRONCAL, "Troncal 802.1Q (varias VLANs)"), (ACCESO, "Acceso (una sola VLAN)"), (SERIE, "Enlace serie (cable DB-60)")])
     d.texto("Puertos sin uso: apagados y en la VLAN 999 (nativa de los troncales).<br>"
-            "Puertos de acceso con portfast y BPDU guard · administración solo por SSH v2.<br>"
+            "Puertos de acceso con portfast y BPDU guard · STP: MST (SW1) y RSTP (SW2) · solo SSH v2.<br>"
             "<i>En el laboratorio (prx): SW1 y SW2 = bridge vmbr1 con VLANs, R1 = prx (vmbr2) y R2/R3 = GNS3.</i>",
             640, 700, 520, 70, "fontSize=11;")
     return d
@@ -160,15 +161,15 @@ def red_logica():
     r1 = d.icono("router", "R1 · 172.31.255.1<br><span style='font-weight:normal'>NAT · OSPF área 0</span>", 760, 190, "derecha")
     fw = d.icono("firewall", "OPNsense · firewall<br><span style='font-weight:normal'>WAN 172.31.255.2<br>NAT · DMZ · WireGuard<br>relay DHCP</span>", 760, 330, "izquierda")
     r2 = d.icono("router", "R2 · 10.255.0.2<br><span style='font-weight:normal'>cliente A<br>192.168.10.0/24</span>", 130, 280, "derecha")
-    r3 = d.icono("router", "R3 · 10.255.0.3<br><span style='font-weight:normal'>cliente B<br>192.168.20.0/24</span>", 340, 280, "derecha")
+    r3 = d.icono("router", "R3 · 10.255.0.6<br><span style='font-weight:normal'>cliente B<br>192.168.20.0/24</span>", 340, 280, "derecha")
     ca = d.icono("caja", "Caja A<br><span style='font-weight:normal'>VPN 10.99.0.129</span>", 130, 400, "derecha")
     cb = d.icono("caja", "Caja B<br><span style='font-weight:normal'>VPN 10.99.0.130</span>", 340, 400, "derecha")
     tele = d.icono("portatil", "Teletrabajo<br><span style='font-weight:normal'>VPN 10.99.0.10</span>", 1360, 250, "derecha")
 
     d.linea(inet, r1, "", ACCESO)
     d.linea(r1, fw, "VLAN 99<br>172.31.255.0/30", TRONCAL, desplazar=(70, 0))
-    d.linea(r1, r2, "VLAN 100 · 10.255.0.0/29 (Internet simulado, OSPF)", ACCESO + "exitX=0;exitY=0.5;exitDx=0;exitDy=0;", [(130, 207)], desplazar=(110, -13))
-    d.linea(r1, r3, "", ACCESO + "exitX=0;exitY=0.5;exitDx=0;exitDy=0;", [(340, 207)])
+    d.linea(r1, r2, "enlaces serie 10.255.0.0/30 y 10.255.0.4/30 (Internet simulado, OSPF)", SERIE + "exitX=0;exitY=0.5;exitDx=0;exitDy=0;", [(130, 207)], desplazar=(110, -13))
+    d.linea(r1, r3, "", SERIE + "exitX=0;exitY=0.5;exitDx=0;exitDy=0;", [(340, 207)])
     d.linea(r2, ca, "NAT · DHCP", ACCESO, desplazar=(-38, 0))
     d.linea(r3, cb, "NAT · DHCP", ACCESO, desplazar=(-38, 0))
     d.linea(inet, vps, "", ACCESO + "exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;")
@@ -193,7 +194,7 @@ def red_logica():
     d.texto("Todo lo que no está permitido está bloqueado. La web y el SSH del firewall solo se abren desde gestión. "
             "DNS: Bind9 (zona nosub.lan) · DHCP: Kea con relay en OPNsense · salida a Internet con doble NAT (OPNsense y R1).",
             20, 740, 1420, 40, "fontSize=11;")
-    leyenda(d, 1150, 372, [(TRONCAL, "Troncal / enlace 802.1Q"), (ACCESO, "Enlace normal"), (TUNEL, "Túnel WireGuard (cifrado)")])
+    leyenda(d, 1262, 340, [(TRONCAL, "Troncal / enlace 802.1Q"), (ACCESO, "Enlace normal"), (SERIE, "Enlace serie (Internet simulado)"), (TUNEL, "Túnel WireGuard (cifrado)")])
     return d
 
 

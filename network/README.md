@@ -10,12 +10,13 @@ El diseño y los planos están en `docs/red.md`.
 ansible-playbook playbooks/red_fisica.yml
 ```
 
-Se crean en `network/generado/`: `R1.cfg`, `R2.cfg`, `R3.cfg`, `SW1.cfg`, `SW2.cfg` y `AP.txt`.
+Se crean en `network/generado/`: `R1.cfg`, `R2.cfg`, `R3.cfg`, `SW1.cfg` (Cisco), `SW2.txt` (HP ProCurve, con sus
+propias instrucciones dentro) y `AP.txt`.
 Esa carpeta **no se sube a Git** porque lleva las contraseñas.
 
 ## 2. Aplicarlas en el centro (primera vez, por consola)
 
-Para cada router y switch:
+Para cada router y SW1 (Cisco). SW2 es un HP: los pasos están dentro de `SW2.txt`.
 
 1. Conectar el cable de consola y abrir la terminal (9600 baudios). Por ejemplo, en Linux o Mac: `screen /dev/ttyUSB0 9600`.
 2. Dejar el equipo de fábrica: `write erase`, `delete flash:vlan.dat` (solo switches) y `reload`. Al preguntar por el asistente de configuración inicial, responder `no`.
@@ -28,13 +29,21 @@ Para el AP: abrir su web (de fábrica suele estar en 192.168.0.1 o similar) y po
 
 **Orden recomendado:** SW1 → SW2 → R1 → R2 y R3 → AP. Así cada equipo tiene red cuando se configura.
 
+**Cables serie:** R1-R2 y R1-R3 van con cable serie DB-60. El extremo **DCE** (lo pone en el conector) va en R1, que es
+quien marca el reloj (`clock rate`). Para comprobarlo: `show controllers serial 0/0` en R1 tiene que decir `DCE`.
+
+**Antes de aplicarlas en el centro:** si las contraseñas de `vault_red_fisica` se han visto en algún sitio, cambiarlas
+y volver a generar.
+
 ## 3. Comprobar que funciona
 
 | Dónde | Comando | Qué tiene que salir |
 |---|---|---|
-| SW1, SW2 | `show vlan brief` | Las VLANs con sus puertos |
-| SW1, SW2 | `show interfaces trunk` | Los troncales con sus VLANs permitidas |
+| SW1 | `show vlan brief` | Las VLANs con sus puertos |
+| SW1 | `show interfaces trunk` | Los troncales con sus VLANs permitidas |
 | SW1 | `show spanning-tree root` | SW1 es la raíz (prioridad 4096) |
+| SW2 (HP) | `show vlans` y `show vlans ports 25 detail` | Las VLANs; el troncal con 999 sin etiqueta |
+| R1 | `show interfaces serial 0/0` | `Serial0/0 is up, line protocol is up` (y lo mismo en 0/1) |
 | R1 | `show ip ospf neighbor` | R2 y R3 en estado FULL |
 | R2, R3 | `show ip route` | Ruta por defecto `O*E2` aprendida de R1 |
 | R2, R3 | `ping 172.31.255.2` | Responde la WAN de OPNsense |
@@ -47,8 +56,11 @@ Se cambian los datos o las plantillas (`roles/red_fisica/templates/`), se vuelve
 solo las líneas que cambian, por SSH. Más adelante se podrá hacer directamente desde Ansible
 (colección `cisco.ios`, ya instalada).
 
-## Si los equipos no son Cisco
+## Si cambia el material
 
-Las plantillas están escritas para Cisco IOS (routers con dos puertos Gi0/0 y Gi0/1, y switches 2960 de 24 puertos).
-- **Otro modelo Cisco:** cambiar los nombres de los puertos en `red_fisica.yml`. En un 3560/3750, poner `encapsulacion_troncal: true`.
+Las plantillas están hechas para el rack del grupo: routers Cisco 2621, 2610XM y 2620 con tarjetas serie, SW1 Catalyst
+3560G-48 y SW2 HP ProCurve 2626.
+- **Otro modelo Cisco:** cambiar los nombres de los puertos en `red_fisica.yml`. En un 3560/3750, `encapsulacion_troncal: true`.
+- **Un switch HP ProCurve:** `marca: hp` (plantilla `switch-hp.txt.j2`; los puertos son números).
 - **Otra marca:** el diseño (`docs/red.md`) no cambia. Solo hay que escribir plantillas nuevas con los mismos datos.
+- **IOS sin cifrado** (sin `k9` en `show version`): no admite SSH. Se gestionan por consola y se quitan las líneas de SSH.

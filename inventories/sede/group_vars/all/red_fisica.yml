@@ -1,16 +1,26 @@
 # Red física de la sede (material del centro: R1-R3, SW1-SW2 y AP). Ver docs/red.md.
 # Con estos datos, playbooks/red_fisica.yml genera la configuración de cada equipo en network/generado/.
-# Equipos supuestos: routers Cisco con 2 puertos (Gi0/0, Gi0/1) y switches Cisco 2960 de 24 puertos.
-# Si un switch es un 3560/3750, ponerle "encapsulacion_troncal: true" (allí hay que elegir dot1q a mano).
-# Si son otros, solo cambian los nombres de los puertos aquí.
+# Equipos del rack del grupo (foto del 28 oct; el centro aún puede cambiar la asignación):
+#   R1 = Cisco 2621   (Fa0/0, Fa0/1 y dos tarjetas WIC-1T: Serial0/0 y Serial0/1)
+#   R2 = Cisco 2610XM (Fa0/0 y una WIC-1T: Serial0/0)
+#   R3 = Cisco 2620   (Fa0/0 y una WIC-1T: Serial0/0)
+#   SW1 = Cisco Catalyst 3560G-48 (Gi0/1-48 y 4 SFP)   SW2 = HP ProCurve 2626 (1-24 de 10/100, 25-26 Gigabit)
+# Si cambia el material, solo cambian los nombres de los puertos aquí (y "marca" si un switch no es Cisco).
 
-# VLANs que están FUERA del firewall. Solo pasan por SW1 (entre Proxmox y los routers); nunca llegan a SW2.
-#   99  = enlace entre OPNsense (WAN) y R1. En el laboratorio, este papel lo hace prx (vmbr2).
-#   100 = "Internet" simulado entre los tres routers (OSPF).
+# VLAN que está FUERA del firewall: enlace entre OPNsense (WAN) y R1. Solo pasa por SW1; nunca llega a SW2.
+# En el laboratorio, este papel lo hace prx (vmbr2).
 vlan_enlace_r1: { id: 99, nombre: enlace_r1, red: 172.31.255.0/30 }
-vlan_proveedor: { id: 100, nombre: proveedor, red: 10.255.0.0/29 }
-dns_clientes: [9.9.9.9, 1.1.1.1]    # DNS que reparten R2 y R3 a sus clientes
 vlan_aparcado: 999      # VLAN vacía: puertos sin uso y VLAN nativa de los troncales (nunca la 1)
+
+# "Internet" simulado entre R1 y los clientes: un enlace serie de R1 a cada uno (OSPF).
+# Cada enlace es una /30 sacada de red_proveedor: la primera IP es la de R1, la segunda la del cliente.
+# R1 pone el reloj (lado DCE del cable): si el cable está al revés, el "clock rate" va en el otro extremo.
+red_proveedor: 10.255.0.0/24
+reloj_serie: 2000000     # bit/s (máximo de la WIC-1T: 2,048 Mbit/s)
+enlaces_serie:
+  - { red: 10.255.0.0/30, r1: Serial0/0, cliente: R2 }
+  - { red: 10.255.0.4/30, r1: Serial0/1, cliente: R3 }
+dns_clientes: [9.9.9.9, 1.1.1.1]    # DNS que reparten R2 y R3 a sus clientes
 
 # Desde dónde se puede entrar por SSH a cada tipo de equipo
 ssh_permitido_switches: [10.10.10.0/24, 100.64.0.0/10]   # gestión y administradores por Tailscale
@@ -18,50 +28,57 @@ ssh_permitido_routers: [172.31.255.2]                    # solo desde la sede (s
 
 routers:
   R1:
+    modelo: Cisco 2621
     papel: "Borde de la sede: salida a Internet del centro y enlace con los clientes"
     loopback: 10.255.255.1
-    puerto_wan: Gi0/0               # a la red del centro (IP por DHCP)
-    puerto_troncal: Gi0/1           # a SW1 (VLANs 99 y 100)
+    puerto_wan: Fa0/0               # al Catalyst 3750-X del centro (IP por DHCP)
+    puerto_sede: Fa0/1              # a SW1 (VLAN 99)
     ip_enlace: 172.31.255.1/30      # puerta de enlace de OPNsense
-    ip_proveedor: 10.255.0.1/29
+    # Lo que entra desde el centro y se reenvía a la WAN de OPNsense. El centro tiene que reenviar el mismo
+    # puerto desde su IP pública a R1; si nos da otro número (la IP es de todos los grupos), cambiar "publico".
+    reenvios:
+      - { proto: udp, publico: 51820, puerto: 51820, para: "VPN WireGuard (cajas y teletrabajo)" }
   R2:
+    modelo: Cisco 2610XM
     papel: "Casa del cliente A (red doméstica con una caja)"
     loopback: 10.255.255.2
-    puerto_proveedor: Gi0/0         # a SW1 (VLAN 100)
-    puerto_lan: Gi0/1               # red del cliente
-    ip_proveedor: 10.255.0.2/29
+    puerto_serie: Serial0/0         # a R1 Serial0/0
+    puerto_lan: Fa0/0               # red del cliente
     lan: 192.168.10.0/24
   R3:
+    modelo: Cisco 2620
     papel: "Oficina del cliente B (segunda ubicación)"
     loopback: 10.255.255.3
-    puerto_proveedor: Gi0/0
-    puerto_lan: Gi0/1
-    ip_proveedor: 10.255.0.3/29
+    puerto_serie: Serial0/0         # a R1 Serial0/1
+    puerto_lan: Fa0/0
     lan: 192.168.20.0/24
 
 switches:
   SW1:
-    papel: "Núcleo: troncal hacia Proxmox, routers y SW2"
+    marca: cisco
+    modelo: Cisco Catalyst 3560G-48
+    papel: "Núcleo: troncal hacia Proxmox, R1 y SW2"
     ip_gestion: 10.10.10.3
-    raiz_stp: true                  # raíz del árbol de expansión de todas las VLANs
+    raiz_stp: true                  # raíz del árbol de expansión
+    encapsulacion_troncal: true     # el 3560 pide elegir dot1q a mano
     puertos:
       - { nombre: Gi0/1, modo: troncal, vlans: [10, 20, 30, 40, 50, 60, 99], descripcion: "prx (Proxmox): troncal de la sede" }
-      - { nombre: Gi0/2, modo: troncal, vlans: [10, 40, 50], descripcion: "SW2 (acceso)" }
-      - { nombre: Fa0/1, modo: troncal, vlans: [99, 100], descripcion: "R1 Gi0/1" }
-      - { nombre: Fa0/2, modo: acceso, vlan: 100, descripcion: "R2 Gi0/0" }
-      - { nombre: Fa0/3, modo: acceso, vlan: 100, descripcion: "R3 Gi0/0" }
-      - { nombre: "Fa0/4 - 5", modo: acceso, vlan: 10, descripcion: "Puesto de administración" }
-      - { nombre: "Fa0/6 - 8", modo: acceso, vlan: 60, descripcion: "Laboratorio de cajas" }
-    apagados: "Fa0/9 - 24"
+      - { nombre: Gi0/2, modo: troncal, vlans: [10, 40, 50], descripcion: "SW2 puerto 25 (acceso)" }
+      - { nombre: Gi0/3, modo: acceso, vlan: 99, descripcion: "R1 Fa0/1 (enlace con OPNsense)" }
+      - { nombre: "Gi0/4 - 5", modo: acceso, vlan: 10, descripcion: "Puesto de administración" }
+      - { nombre: "Gi0/6 - 8", modo: acceso, vlan: 60, descripcion: "Laboratorio de cajas" }
+    apagados: "Gi0/9 - 52"
   SW2:
+    marca: hp
+    modelo: HP ProCurve 2626
     papel: "Acceso: puestos de empleados y punto de acceso WiFi"
     ip_gestion: 10.10.10.4
     raiz_stp: false
-    puertos:
-      - { nombre: Gi0/1, modo: troncal, vlans: [10, 40, 50], descripcion: "SW1 (núcleo)" }
-      - { nombre: Fa0/1, modo: troncal, vlans: [10, 40, 50], nativa: 10, descripcion: "AP (gestión sin etiqueta)" }
-      - { nombre: "Fa0/2 - 20", modo: acceso, vlan: 40, descripcion: "Puesto de empleado" }
-    apagados: "Fa0/21 - 24"
+    puertos:                        # en HP los puertos son números: 1-24 (10/100) y 25-26 (Gigabit)
+      - { nombre: "25", modo: troncal, vlans: [10, 40, 50], descripcion: "SW1 Gi0/2 (nucleo)" }
+      - { nombre: "1", modo: troncal, vlans: [10, 40, 50], nativa: 10, descripcion: "AP (gestion sin etiqueta)" }
+      - { nombre: "2-20", modo: acceso, vlan: 40, descripcion: "Puesto de empleado" }
+    apagados: "21-24,26"
 
 punto_acceso:
   ip_gestion: 10.10.10.5

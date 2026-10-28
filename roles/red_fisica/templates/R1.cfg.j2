@@ -1,29 +1,32 @@
-! {{ equipo }}: {{ r.papel }}
+! {{ equipo }} ({{ r.modelo }}): {{ r.papel }}
 ! Generado por Ansible (nosub-infra, rol red_fisica). No editar a mano: cambiar los datos y volver a generar.
 {% include '_comun.j2' +%}
 !
 ! ---------- Salida a la red del centro (Internet) ----------
 interface {{ r.puerto_wan }}
- description Red del centro (Internet)
+ description Red del centro (Catalyst 3750-X, Internet)
  ip address dhcp
  ip nat outside
  no shutdown
 !
-! ---------- Troncal hacia SW1 ----------
-interface {{ r.puerto_troncal }}
- description Troncal a SW1 (VLANs {{ vlan_enlace_r1.id }} y {{ vlan_proveedor.id }})
- no ip address
- no shutdown
-interface {{ r.puerto_troncal }}.{{ vlan_enlace_r1.id }}
+! ---------- Enlace con la sede (SW1, VLAN {{ vlan_enlace_r1.id }}) ----------
+interface {{ r.puerto_sede }}
  description Enlace con OPNsense (WAN de la sede)
- encapsulation dot1Q {{ vlan_enlace_r1.id }}
  ip address {{ r.ip_enlace | ansible.utils.ipaddr('address') }} {{ r.ip_enlace | ansible.utils.ipaddr('netmask') }}
  ip nat inside
-interface {{ r.puerto_troncal }}.{{ vlan_proveedor.id }}
- description Internet simulado (clientes)
- encapsulation dot1Q {{ vlan_proveedor.id }}
- ip address {{ r.ip_proveedor | ansible.utils.ipaddr('address') }} {{ r.ip_proveedor | ansible.utils.ipaddr('netmask') }}
+ no shutdown
+!
+! ---------- Enlaces serie con los clientes ("Internet" simulado) ----------
+{% for e in enlaces_serie %}
+interface {{ e.r1 }}
+ description Enlace serie con {{ e.cliente }} ({{ routers[e.cliente].puerto_serie }})
+ ip address {{ e.red | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') }} {{ e.red | ansible.utils.ipaddr('netmask') }}
+ encapsulation hdlc
+ clock rate {{ reloj_serie }}
+ bandwidth {{ (reloj_serie / 1000) | int }}
  ip nat inside
+ no shutdown
+{% endfor %}
 !
 interface Loopback0
  ip address {{ r.loopback }} 255.255.255.255
@@ -31,17 +34,25 @@ interface Loopback0
 ! ---------- NAT: todo lo que sale al centro usa la IP de R1 ----------
 ip access-list standard NAT-SALIDA
  permit {{ vlan_enlace_r1.red | ansible.utils.ipaddr('network') }} {{ vlan_enlace_r1.red | ansible.utils.ipaddr('hostmask') }}
- permit {{ vlan_proveedor.red | ansible.utils.ipaddr('network') }} {{ vlan_proveedor.red | ansible.utils.ipaddr('hostmask') }}
+ permit {{ red_proveedor | ansible.utils.ipaddr('network') }} {{ red_proveedor | ansible.utils.ipaddr('hostmask') }}
 ip nat inside source list NAT-SALIDA interface {{ r.puerto_wan }} overload
+!
+! ---------- Lo que entra desde el centro hacia la WAN de OPNsense ----------
+{% for f in r.reenvios %}
+! {{ f.para }}
+ip nat inside source static {{ f.proto }} {{ vlan_enlace_r1.red | ansible.utils.ipaddr('2') | ansible.utils.ipaddr('address') }} {{ f.puerto }} interface {{ r.puerto_wan }} {{ f.publico }}
+{% endfor %}
 !
 ! ---------- OSPF: da a R2 y R3 la ruta por defecto y la WAN de la sede ----------
 router ospf 1
  router-id {{ r.loopback }}
  passive-interface default
- no passive-interface {{ r.puerto_troncal }}.{{ vlan_proveedor.id }}
+{% for e in enlaces_serie %}
+ no passive-interface {{ e.r1 }}
+{% endfor %}
  network {{ r.loopback }} 0.0.0.0 area 0
  network {{ vlan_enlace_r1.red | ansible.utils.ipaddr('network') }} {{ vlan_enlace_r1.red | ansible.utils.ipaddr('hostmask') }} area 0
- network {{ vlan_proveedor.red | ansible.utils.ipaddr('network') }} {{ vlan_proveedor.red | ansible.utils.ipaddr('hostmask') }} area 0
+ network {{ red_proveedor | ansible.utils.ipaddr('network') }} {{ red_proveedor | ansible.utils.ipaddr('hostmask') }} area 0
  default-information originate
 !
 {% include '_vty.j2' +%}

@@ -5,12 +5,10 @@
   "nodos": [
     {"nombre": "Centro", "tipo": "cloud", "interfaz": gns3_tarjeta_centro, "x": -60, "y": -300,
      "descripcion": "Red del centro: VLAN 50 de la sede (DHCP de Kea y salida a Internet de verdad)"},
-    {"nombre": "R1", "tipo": "docker", "imagen": gns3_imagen_frr, "adaptadores": 2, "ficheros": e ~ "R1", "x": -60, "y": -160},
+    {"nombre": "R1", "tipo": "docker", "imagen": gns3_imagen_frr, "adaptadores": 2 + enlaces_serie | length, "ficheros": e ~ "R1", "x": -60, "y": -160},
     {"nombre": "SW1", "tipo": "switch", "x": -60, "y": 0, "puertos": [
-       {"n": 0, "tipo": "dot1q", "vlan": 1, "a": "R1 (troncal " ~ vlan_enlace_r1.id ~ " y " ~ vlan_proveedor.id ~ ")"},
-       {"n": 1, "tipo": "access", "vlan": vlan_proveedor.id, "a": "R2"},
-       {"n": 2, "tipo": "access", "vlan": vlan_proveedor.id, "a": "R3"},
-       {"n": 3, "tipo": "access", "vlan": vlan_enlace_r1.id, "a": "Sede (WAN de OPNsense)"}]},
+       {"n": 0, "tipo": "access", "vlan": vlan_enlace_r1.id, "a": "R1 (enlace con la sede)"},
+       {"n": 1, "tipo": "access", "vlan": vlan_enlace_r1.id, "a": "Sede (WAN de OPNsense)"}]},
     {"nombre": "Sede-WAN", "tipo": "docker", "imagen": gns3_imagen_equipo, "adaptadores": 1, "ficheros": e ~ "Sede-WAN", "x": -300, "y": 0},
     {"nombre": "R2", "tipo": "docker", "imagen": gns3_imagen_frr, "adaptadores": 2, "ficheros": e ~ "R2", "x": -200, "y": 160},
     {"nombre": "R3", "tipo": "docker", "imagen": gns3_imagen_frr, "adaptadores": 2, "ficheros": e ~ "R3", "x": 80, "y": 160},
@@ -20,9 +18,9 @@
   "enlaces": [
     [["Centro", 0, 0], ["R1", 0, 0]],
     [["R1", 1, 0], ["SW1", 0, 0]],
-    [["R2", 0, 0], ["SW1", 0, 1]],
-    [["R3", 0, 0], ["SW1", 0, 2]],
-    [["Sede-WAN", 0, 0], ["SW1", 0, 3]],
+    [["R1", 2, 0], [enlaces_serie[0].cliente, 0, 0]],
+    [["R1", 3, 0], [enlaces_serie[1].cliente, 0, 0]],
+    [["Sede-WAN", 0, 0], ["SW1", 0, 1]],
     [["R2", 1, 0], ["Caja-A", 0, 0]],
     [["R3", 1, 0], ["Caja-B", 0, 0]]
   ]

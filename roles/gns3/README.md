@@ -13,12 +13,12 @@ red física** de la sede: R1, R2, R3 y SW1, con los mismos datos que la configur
 **La topología:**
 - **Centro** (nodo Cloud): la "red del centro" de R1. Es una tarjeta de la VM en la **VLAN 50 de la sede real**:
   R1 coge IP por DHCP de Kea y sale a Internet de verdad. Es la integración de GNS3 con el sistema real.
-- **R1** (borde): troncal a SW1 con las VLANs 99 (enlace con la sede) y 100 ("Internet" de los clientes), NAT y OSPF
-  (da la ruta por defecto y la WAN de la sede).
-- **SW1**: troncal hacia R1; VLAN 100 hacia R2 y R3; VLAN 99 hacia **Sede-WAN** (172.31.255.2, como la WAN de OPNsense).
+- **R1** (borde): a SW1 por la VLAN 99 (enlace con la sede) y un enlace directo con R2 y otro con R3 (en el material
+  real son enlaces serie; Docker no tiene puertos serie). NAT, reenvío de la VPN y OSPF (da la ruta por defecto y la WAN de la sede).
+- **SW1**: VLAN 99 entre R1 y **Sede-WAN** (172.31.255.2, como la WAN de OPNsense).
 - **R2 y R3** (clientes): NAT, DHCP para su red y OSPF. **Caja-A** y **Caja-B**: un equipo en cada red de cliente.
 
-**Routers con FRRouting**, no Cisco: las imágenes de IOS son de pago. Se ensaya lo mismo (VLANs, OSPF, NAT y DHCP) con
+**Routers con FRRouting**, no Cisco: las imágenes de IOS son de pago. Se ensaya lo mismo (OSPF, NAT y DHCP) con
 los mismos datos. Si el centro tiene imágenes IOS, se pueden añadir a GNS3 y usar `network/generado/*.cfg`.
 
 **Pruebas** (`tasks/pruebas.yml`, en cada pasada): R2 y R3 ven a R1 como vecino OSPF; R2 aprende la ruta por defecto

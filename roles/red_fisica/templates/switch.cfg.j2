@@ -1,10 +1,10 @@
-! {{ equipo }}: {{ s.papel }}
+! {{ equipo }} ({{ s.modelo }}): {{ s.papel }}
 ! Generado por Ansible (nosub-infra, rol red_fisica). No editar a mano: cambiar los datos y volver a generar.
 {% include '_comun.j2' +%}
 !
 ! ---------- VLANs ----------
 {% set usadas = s.puertos | map(attribute='vlans', default=[]) | flatten + s.puertos | selectattr('vlan', 'defined') | map(attribute='vlan') | list %}
-{% for v in vlans + [vlan_enlace_r1, vlan_proveedor] if v.id in usadas %}
+{% for v in vlans + [vlan_enlace_r1] if v.id in usadas %}
 vlan {{ v.id }}
  name {{ v.nombre | upper }}
 {% endfor %}
@@ -12,9 +12,10 @@ vlan {{ vlan_aparcado }}
  name APARCADO
 !
 ! ---------- Árbol de expansión (evita bucles) ----------
-spanning-tree mode rapid-pvst
+! MST (estándar IEEE) y no rapid-PVST: así se entiende sin problemas con switches de otras marcas (SW2 es HP)
+spanning-tree mode mst
 {% if s.raiz_stp %}
-spanning-tree vlan 1-4094 priority 4096
+spanning-tree mst 0 priority 4096
 {% endif %}
 !
 ! ---------- Puertos en uso ----------

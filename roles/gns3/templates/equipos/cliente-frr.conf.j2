@@ -14,5 +14,5 @@ router ospf
  ospf router-id {{ r.loopback }}
  passive-interface default
  network {{ r.loopback }}/32 area 0
- network {{ vlan_proveedor.red }} area 0
+ network {{ (enlaces_serie | selectattr('cliente', 'equalto', nombre) | first).red }} area 0
 !

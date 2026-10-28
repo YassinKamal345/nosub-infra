@@ -19,7 +19,10 @@
     equipo: "{{ item.key }}"
     s: "{{ item.value }}"
     ssh_permitido: "{{ ssh_permitido_switches }}"
-  ansible.builtin.template: { src: switch.cfg.j2, dest: "{{ red_fisica_salida }}/{{ item.key }}.cfg", mode: "0600" }
+  ansible.builtin.template:
+    src: "{{ 'switch-hp.txt.j2' if item.value.marca == 'hp' else 'switch.cfg.j2' }}"
+    dest: "{{ red_fisica_salida }}/{{ item.key }}.{{ 'txt' if item.value.marca == 'hp' else 'cfg' }}"
+    mode: "0600"
   loop: "{{ switches | dict2items }}"
   loop_control: { label: "{{ item.key }}" }
 

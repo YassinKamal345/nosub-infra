@@ -1,0 +1,78 @@
+{{ equipo }} ({{ s.modelo }}): {{ s.papel }}
+Generado por Ansible (nosub-infra, rol red_fisica). No editar a mano: cambiar los datos y volver a generar.
+
+Los switches HP ProCurve no usan los comandos de Cisco: las VLANs se definen con sus puertos
+("untagged" = sin etiqueta, una por puerto; "tagged" = con etiqueta, para los troncales).
+Cómo aplicarlo (por consola, 9600 baudios):
+  1. Dejarlo de fábrica: "erase startup-config" (se reinicia solo).
+  2. Entrar: "configure".
+  3. Pegar todo lo que hay entre las dos líneas de guiones.
+  4. Usuario de gestión (lo pide dos veces): "password manager user-name admin"
+     Contraseña: {{ vault_red_fisica.admin }}
+  5. Guardar: "write memory".
+
+-------------------------------------------------------------------------------
+hostname "{{ equipo }}"
+{% for v in vlans if v.id in (s.puertos | map(attribute='vlans', default=[]) | flatten + s.puertos | selectattr('vlan', 'defined') | map(attribute='vlan') | list) %}
+{%   set ns = namespace(sin=[], con=[]) %}
+{%   for p in s.puertos %}
+{%     set nativa = p.nativa if 'nativa' in p else (p.vlan if p.modo == 'acceso' else vlan_aparcado) %}
+{%     if nativa == v.id %}{% set ns.sin = ns.sin + [p.nombre] %}
+{%     elif v.id in p.vlans | default([]) %}{% set ns.con = ns.con + [p.nombre] %}{% endif %}
+{%   endfor %}
+vlan {{ v.id }}
+   name "{{ v.nombre | upper }}"
+{% if ns.sin %}
+   untagged {{ ns.sin | join(',') }}
+{% endif %}
+{% if ns.con %}
+   tagged {{ ns.con | join(',') }}
+{% endif %}
+{% if v.id == vlan_gestion %}
+   ip address {{ s.ip_gestion }} {{ v.red | ansible.utils.ipaddr('netmask') }}
+{% endif %}
+   exit
+{% endfor %}
+vlan {{ vlan_aparcado }}
+   name "APARCADO"
+   untagged {{ (s.puertos | selectattr('modo', 'equalto', 'troncal') | selectattr('nativa', 'undefined') | map(attribute='nombre') | list + [s.apagados]) | join(',') }}
+   exit
+vlan 1
+   no ip address
+   exit
+{% for p in s.puertos %}
+interface {{ p.nombre }}
+   name "{{ p.descripcion }}"
+   exit
+{% endfor %}
+interface {{ s.apagados }}
+   name "Sin uso"
+   disable
+   exit
+ip default-gateway {{ ip_gestion_opnsense }}
+sntp server {{ ip_gestion_opnsense }}
+timesync sntp
+sntp unicast
+spanning-tree
+spanning-tree protocol-version rstp
+{% set acceso = s.puertos | selectattr('modo', 'equalto', 'acceso') | map(attribute='nombre') | join(',') %}
+{% if acceso %}
+spanning-tree {{ acceso }} edge-port
+spanning-tree {{ acceso }} bpdu-protection
+{% endif %}
+no snmp-server community "public"
+no telnet-server
+no web-management
+{% for red in ssh_permitido %}
+ip authorized-managers {{ red | ansible.utils.ipaddr('network') }} {{ red | ansible.utils.ipaddr('netmask') }} access manager
+{% endfor %}
+crypto key generate ssh rsa
+ip ssh
+ip ssh version 2
+-------------------------------------------------------------------------------
+
+Comprobar:
+  show vlans                     Las VLANs, con su IP de gestión en la {{ vlan_gestion }}
+  show vlans ports 25 detail     El troncal con SW1: {{ vlan_aparcado }} sin etiqueta y las demás con etiqueta
+  show spanning-tree             La raíz es SW1 (prioridad 4096)
+Si el firmware es antiguo y no conoce alguna línea (por ejemplo "bpdu-protection"), se salta y se sigue.

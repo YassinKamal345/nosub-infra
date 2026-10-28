@@ -5,7 +5,7 @@ Gestión
   IP:              {{ punto_acceso.ip_gestion }} / {{ (vlans | selectattr('id', 'equalto', vlan_gestion) | first).red | ansible.utils.ipaddr('netmask') }}
   Puerta y DNS:    {{ ip_gestion_opnsense }}
   Usuario:         admin / {{ vault_red_fisica.admin }}
-  Conectado a:     SW2 Fa0/1 (troncal: gestión sin etiqueta; WiFi con etiqueta)
+  Conectado a:     SW2 puerto 1 (troncal: gestión sin etiqueta; WiFi con etiqueta)
 
 Redes WiFi
 {% for w in punto_acceso.redes_wifi %}

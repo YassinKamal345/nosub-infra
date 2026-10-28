@@ -4,7 +4,7 @@ Crea la **caja de verdad** dentro de un mini PC con Proxmox (en el laboratorio, 
 deja lista para llevarla a casa del cliente.
 
 **Antes (a mano, una vez por mini PC):**
-1. Instalar Proxmox en el mini PC, conectado a la sede en un puerto de la VLAN 60 (SW1 Fa0/6-8), con una IP fija
+1. Instalar Proxmox en el mini PC, conectado a la sede en un puerto de la VLAN 60 (SW1 Gi0/6-8), con una IP fija
    de la VLAN 60 fuera del DHCP (p. ej. `10.10.60.50/24`, puerta `10.10.60.1`).
 2. Desde el nodo de control: `ssh-copy-id -i ~/.ssh/nosub_ansible.pub root@<IP del mini PC>` (pide la contraseña
    de root del mini PC una vez y apunta su huella).

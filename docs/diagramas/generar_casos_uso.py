@@ -242,7 +242,7 @@ def caja():
             "Nunca se envían ficheros, fotos ni el historial de navegación:<br>solo recuentos y listas de lo más usado.",
             x3, 850, 470, 60, f"fontSize=11;fontColor={NARANJA};fontStyle=2;")
     d.texto("Si la sede no responde, C01-C12 siguen funcionando: todo es local.", x2, 960, 600, 24, "fontSize=11;fontStyle=2;")
-    d.texto("Más apps para la persona de la casa (C22-C31, catálogo ampliado de la fase 3): diagrama 3b.", x2, 984, 620, 24,
+    d.texto("Más apps para la persona de la casa (C22-C51, catálogo ampliado de la fase 3): diagramas 3b y 3c.", x2, 984, 620, 24,
             "fontSize=11;fontStyle=2;fontColor=#1f4e79;")
     leyenda(d, 1310, 1040)
     return d

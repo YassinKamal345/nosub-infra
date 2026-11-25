@@ -11,9 +11,10 @@ alertmanager_ntfy_titulo: !unsafe 'NoSub: {{if eq .status "resolved"}}resuelto {
 alertmanager_ntfy_mensaje: !unsafe "{{range .alerts}}{{if eq .status \"resolved\"}}✅ {{else}}⚠️ {{end}}{{.annotations.resumen}}\n{{end}}"
 
 # Grafana (repositorio oficial apt.grafana.com; la clave se comprueba por su huella)
-grafana_version: "13.2.4"
+grafana_version: "13.3.2"
 grafana_clave_huella: B53AE77BADB630A683046005963FA27710458545
 grafana_admin: yassin                     # contraseña: vault_grafana.admin_clave
+grafana_otros_admins: [edmundo, ramanvir]  # contraseña: vault_grafana.otros_admins.<usuario>
 grafana_url: "http://{{ ansible_host }}:3000/"
 grafana_dir_paneles: /var/lib/grafana/paneles
 

@@ -30,6 +30,8 @@ opnsense_nombres_web: []
 # Administradores personales de la web (además de root). Contraseña en el Vault: vault_opnsense_admins.<nombre>
 opnsense_administradores:
   - { nombre: yassin, descripcion: "Yassin Kamal" }
+  - { nombre: edmundo, descripcion: "Edmundo Fraga" }
+  - { nombre: ramanvir, descripcion: "Ramanvir Singh" }
 
 # Segundo factor en la web (riesgo RS-07): se entra con la contraseña seguida del código de 6 cifras de la app del
 # móvil. Las semillas se derivan de la contraseña de root del Vault (filtro totp_semilla): no hay secretos nuevos y

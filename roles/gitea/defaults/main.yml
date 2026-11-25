@@ -20,6 +20,8 @@ gitea_bd: postgres
 # Administrador (contraseña en el Vault: vault_gitea.admin_clave)
 gitea_admin: yassin
 gitea_admin_correo: "yassin@{{ dominio_interno }}"
+# Otros administradores del equipo (contraseña en el Vault: vault_gitea.otros_admins.<usuario>)
+gitea_otros_admins: [edmundo, ramanvir]
 
 # Organización y repositorios que deben existir
 gitea_organizacion: nosub

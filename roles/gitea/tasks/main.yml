@@ -66,6 +66,16 @@
   no_log: true
   changed_when: true
 
+- name: Otros administradores del equipo
+  when: item not in admins.stdout.split()
+  ansible.builtin.command:
+    argv: [runuser, -u, "{{ gitea_usuario }}", --, gitea, --config, "{{ gitea_dir_config }}/app.ini", admin, user, create,
+           --admin, --username, "{{ item }}", --email, "{{ item }}@{{ dominio_interno }}",
+           --password, "{{ vault_gitea.otros_admins[item] }}", --must-change-password=false]
+  loop: "{{ gitea_otros_admins }}"
+  no_log: true
+  changed_when: true
+
 - name: Dirección de la API
   ansible.builtin.set_fact:
     gitea_api: "http://127.0.0.1:{{ gitea_puerto_web }}/api/v1"

@@ -165,6 +165,65 @@
 - name: Arrancar Grafana y que arranque sola
   ansible.builtin.systemd: { name: grafana-server, state: started, enabled: true }
 
+- name: Esperar a que Grafana responda
+  ansible.builtin.uri: { url: "http://127.0.0.1:3000/api/health" }
+  register: salud_grafana
+  until: salud_grafana.status == 200
+  retries: 30
+  delay: 2
+
+- name: Otros administradores del equipo (crear si no existen)
+  ansible.builtin.uri:
+    url: http://127.0.0.1:3000/api/admin/users
+    method: POST
+    body_format: json
+    body: { name: "{{ item }}", login: "{{ item }}", email: "{{ item }}@{{ dominio_interno }}",
+            password: "{{ vault_grafana.otros_admins[item] }}" }
+    status_code: [200, 412]
+    url_username: "{{ grafana_admin }}"
+    url_password: "{{ vault_grafana.admin_clave }}"
+    force_basic_auth: true
+  loop: "{{ grafana_otros_admins }}"
+  register: grafana_nuevos
+  changed_when: grafana_nuevos.status == 200
+  no_log: true
+
+- name: Buscar sus identificadores
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:3000/api/users/lookup?loginOrEmail={{ item }}"
+    url_username: "{{ grafana_admin }}"
+    url_password: "{{ vault_grafana.admin_clave }}"
+    force_basic_auth: true
+  loop: "{{ grafana_otros_admins }}"
+  register: grafana_ids
+
+- name: Darles permiso de administrador del servidor
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:3000/api/admin/users/{{ item.json.id }}/permissions"
+    method: PUT
+    body_format: json
+    body: { isGrafanaAdmin: true }
+    url_username: "{{ grafana_admin }}"
+    url_password: "{{ vault_grafana.admin_clave }}"
+    force_basic_auth: true
+  loop: "{{ grafana_ids.results }}"
+  loop_control: { label: "{{ item.item }}" }
+  when: not item.json.isGrafanaAdmin
+  changed_when: true
+
+- name: Y rol Admin en la organización principal
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:3000/api/org/users/{{ item.json.id }}"
+    method: PATCH
+    body_format: json
+    body: { role: Admin }
+    url_username: "{{ grafana_admin }}"
+    url_password: "{{ vault_grafana.admin_clave }}"
+    force_basic_auth: true
+  loop: "{{ grafana_ids.results }}"
+  loop_control: { label: "{{ item.item }}" }
+  changed_when: false
+
 # ---------- Latido hacia la página de estado del cloud (rol cloud) ----------
 # La clave la crea el VPS; solo se conoce si el VPS se ha configurado en esta misma ejecución.
 - name: Latido hacia la página de estado

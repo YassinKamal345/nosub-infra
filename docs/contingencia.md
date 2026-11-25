@@ -199,7 +199,7 @@ Es el peor caso. El plan es **montar otro Proxmox y rehacer la sede encima**.
 | Gitea (el repositorio) | No se pueden aplicar cambios | Usar el espejo de GitHub (E5, pasos 2 y 5) |
 | Token de GitHub | El espejo deja de actualizarse (la sede sigue igual) | Crear un token nuevo en GitHub, guardarlo en el Vault y aplicar el rol `gitea` |
 | Clave SSH de Ansible (`nosub_ansible`) | Ansible no entra en los servidores | Crear otra y meterla por la consola de Proxmox (`pct exec`) o rehacer los contenedores |
-| Móvil con el código TOTP de OPNsense | El administrador no entra en la web de OPNsense | La semilla sale del Vault: volver a escanear el QR con `scripts/totp-qr.sh <usuario>` en un móvil nuevo. Si además falla Ansible: consola serie de la VM 200 en Proxmox (opción 8, shell) y quitar `<authmode>` de `/conf/config.xml`. La consola entra solo con la contraseña |
+| Móvil con el código TOTP de OPNsense | El administrador no entra en la web de OPNsense | La semilla sale del Vault: volver a escanear el QR con `scripts/totp-qr.sh <usuario>` en un móvil nuevo. Si además falla Ansible: consola serie de la VM 200 en Proxmox (opción 8, shell) y quitar `<authmode>` de `/conf/config.xml`. La consola serie también pide contraseña seguida del código TOTP: si no hay móvil, el código de root se calcula con la semilla de root (`opnsense_totp_semillas`, derivada del Vault) en cualquier app o librería TOTP |
 
 ### E10 · Baja de un teletrabajador o robo de su portátil
 

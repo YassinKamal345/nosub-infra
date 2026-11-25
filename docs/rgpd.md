@@ -83,7 +83,7 @@ NoSub puede entrar en la caja para darle soporte, así que respecto a lo que hay
 | Inicios de sesión fallidos | 1 día | `extranet-limpiar.timer` (cada hora) |
 | Registros del sistema (IPs) | 30 días | journald, rol `registros` |
 | Registro DNS de la caja | 24 horas | AdGuard, rol `caja` |
-| Métricas (Prometheus) | 30 días | `prometheus_retencion` |
+| Métricas (Prometheus) | 15 días | `prometheus_retencion` |
 | Copias de PostgreSQL | 7 días | rol `postgresql` |
 | Copias de máquinas (vzdump) | 7 diarias, 4 semanales, 3 mensuales (~3 meses) | Tarea de copias de Proxmox |
 | Copias externas (restic) | **Hoy no caducan** | Pendiente: borrar las de más de 3 meses desde el VPS (apartado 6) |

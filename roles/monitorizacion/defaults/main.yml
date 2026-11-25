@@ -1,6 +1,6 @@
 # Prometheus (paquete de Debian): cada cuánto recoge datos y cuánto tiempo los guarda
 prometheus_intervalo: 15s
-prometheus_retencion: 30d
+prometheus_retencion: 15d
 
 # Avisos al móvil: Alertmanager manda las alertas de Prometheus al canal de ntfy de la página de estado del cloud
 # (el mismo al que ya está suscrito el administrador). Solo si el VPS se ha configurado en esta misma ejecución.
